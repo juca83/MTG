@@ -127,6 +127,20 @@ async def get_sets() -> List[Dict[str, Any]]:
             return resp.json().get("data", [])
 
 
+async def get_card_by_set_number(set_code: str, collector_number: str) -> Optional[Dict[str, Any]]:
+    """Fetch a card by set code and collector number."""
+    async with _semaphore:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(
+                f"{SCRYFALL_BASE}/cards/{set_code}/{collector_number}",
+                headers={"User-Agent": "MTG-Collection-Manager/1.0"},
+            )
+            if resp.status_code == 404:
+                return None
+            resp.raise_for_status()
+            return resp.json()
+
+
 async def autocomplete(query: str) -> List[str]:
     """Autocomplete card names."""
     async with _semaphore:
