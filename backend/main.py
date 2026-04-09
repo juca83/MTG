@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from database import init_db
-from routers import cards, collection, decks, locations, import_csv
+from routers import users, accounts, categories, expenses, analytics, budgets
 
 
 @asynccontextmanager
@@ -12,7 +12,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="MTG Collection Manager", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="Expense Tracker", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -22,11 +22,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(cards.router)
-app.include_router(collection.router)
-app.include_router(decks.router)
-app.include_router(locations.router)
-app.include_router(import_csv.router)
+app.include_router(users.router)
+app.include_router(accounts.router)
+app.include_router(categories.router)
+app.include_router(expenses.router)
+app.include_router(analytics.router)
+app.include_router(budgets.router)
 
 
 @app.get("/health")

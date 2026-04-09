@@ -1,93 +1,43 @@
 import axios from 'axios'
 
-const api = axios.create({
-  baseURL: '/api',
-  timeout: 15000,
-})
+const api = axios.create({ baseURL: '/api' })
 
-// Cards
-export const searchCards = (q, page = 1, order = 'name') =>
-  api.get('/cards/search', { params: { q, page, order } }).then(r => r.data)
+// ── Users ─────────────────────────────────────────────────────────────────────
+export const getUsers        = ()         => api.get('/users').then(r => r.data)
+export const createUser      = (data)     => api.post('/users', data).then(r => r.data)
+export const updateUser      = (id, data) => api.put(`/users/${id}`, data).then(r => r.data)
+export const deleteUser      = (id)       => api.delete(`/users/${id}`)
 
-export const autocomplete = (q) =>
-  api.get('/cards/autocomplete', { params: { q } }).then(r => r.data)
+// ── Accounts ──────────────────────────────────────────────────────────────────
+export const getAccounts     = ()         => api.get('/accounts').then(r => r.data)
+export const createAccount   = (data)     => api.post('/accounts', data).then(r => r.data)
+export const updateAccount   = (id, data) => api.put(`/accounts/${id}`, data).then(r => r.data)
+export const deleteAccount   = (id)       => api.delete(`/accounts/${id}`)
 
-export const getCard = (id) =>
-  api.get(`/cards/${id}`).then(r => r.data)
+// ── Categories ────────────────────────────────────────────────────────────────
+export const getCategories   = ()         => api.get('/categories').then(r => r.data)
+export const createCategory  = (data)     => api.post('/categories', data).then(r => r.data)
+export const updateCategory  = (id, data) => api.put(`/categories/${id}`, data).then(r => r.data)
+export const deleteCategory  = (id)       => api.delete(`/categories/${id}`)
 
-export const getSets = () =>
-  api.get('/cards/sets').then(r => r.data)
+// ── Expenses ──────────────────────────────────────────────────────────────────
+export const getExpenses     = (params)   => api.get('/expenses', { params }).then(r => r.data)
+export const getExpense      = (id)       => api.get(`/expenses/${id}`).then(r => r.data)
+export const createExpense   = (data)     => api.post('/expenses', data).then(r => r.data)
+export const updateExpense   = (id, data) => api.put(`/expenses/${id}`, data).then(r => r.data)
+export const deleteExpense   = (id)       => api.delete(`/expenses/${id}`)
+export const settleSplit     = (eid, sid) => api.patch(`/expenses/${eid}/splits/${sid}/settle`)
 
-// Collection
-export const getCollection = (params = {}) =>
-  api.get('/collection', { params }).then(r => r.data)
+// ── Analytics ─────────────────────────────────────────────────────────────────
+export const getSummary      = (params)   => api.get('/analytics/summary', { params }).then(r => r.data)
+export const getByCategory   = (params)   => api.get('/analytics/by-category', { params }).then(r => r.data)
+export const getMonthly      = (params)   => api.get('/analytics/monthly', { params }).then(r => r.data)
+export const getByUser       = (params)   => api.get('/analytics/by-user', { params }).then(r => r.data)
+export const getBalances     = ()         => api.get('/analytics/balances').then(r => r.data)
+export const getWeekly       = (params)   => api.get('/analytics/weekly', { params }).then(r => r.data)
 
-export const addToCollection = (entry) =>
-  api.post('/collection', entry).then(r => r.data)
-
-export const updateCollectionEntry = (id, update) =>
-  api.patch(`/collection/${id}`, update).then(r => r.data)
-
-export const deleteCollectionEntry = (id) =>
-  api.delete(`/collection/${id}`)
-
-export const getCollectionStats = () =>
-  api.get('/collection/stats').then(r => r.data)
-
-// Locations
-export const getLocations = () =>
-  api.get('/locations').then(r => r.data)
-
-export const createLocation = (loc) =>
-  api.post('/locations', loc).then(r => r.data)
-
-export const updateLocation = (id, loc) =>
-  api.patch(`/locations/${id}`, loc).then(r => r.data)
-
-// Decks
-export const getDecks = (params = {}) =>
-  api.get('/decks', { params }).then(r => r.data)
-
-export const createDeck = (deck) =>
-  api.post('/decks', deck).then(r => r.data)
-
-export const getDeck = (id) =>
-  api.get(`/decks/${id}`).then(r => r.data)
-
-export const updateDeck = (id, update) =>
-  api.patch(`/decks/${id}`, update).then(r => r.data)
-
-export const deleteDeck = (id) =>
-  api.delete(`/decks/${id}`)
-
-export const getDeckEntries = (deckId, params = {}) =>
-  api.get(`/decks/${deckId}/entries`, { params }).then(r => r.data)
-
-export const addDeckEntry = (deckId, entry) =>
-  api.post(`/decks/${deckId}/entries`, entry).then(r => r.data)
-
-export const updateDeckEntry = (deckId, entryId, update) =>
-  api.patch(`/decks/${deckId}/entries/${entryId}`, update).then(r => r.data)
-
-export const deleteDeckEntry = (deckId, entryId) =>
-  api.delete(`/decks/${deckId}/entries/${entryId}`)
-
-export const getDeckAnalysis = (deckId) =>
-  api.get(`/decks/${deckId}/analysis`).then(r => r.data)
-
-export const getDeckMissing = (deckId) =>
-  api.get(`/decks/${deckId}/missing`).then(r => r.data)
-
-export const getDeckRefile = (deckId) =>
-  api.get(`/decks/${deckId}/refile`).then(r => r.data)
-
-// Import
-export const importManabox = (file) => {
-  const formData = new FormData()
-  formData.append('file', file)
-  return api.post('/import/manabox', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  }).then(r => r.data)
-}
-
-export default api
+// ── Budgets ───────────────────────────────────────────────────────────────────
+export const getBudgets      = (params)   => api.get('/budgets', { params }).then(r => r.data)
+export const createBudget    = (data)     => api.post('/budgets', data).then(r => r.data)
+export const updateBudget    = (id, data) => api.put(`/budgets/${id}`, data).then(r => r.data)
+export const deleteBudget    = (id)       => api.delete(`/budgets/${id}`)

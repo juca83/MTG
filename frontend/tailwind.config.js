@@ -7,21 +7,14 @@ export default {
   theme: {
     extend: {
       colors: {
-        // MTG mana colors
-        'mana-white': '#f8f6d8',
-        'mana-blue': '#0e68ab',
-        'mana-black': '#150b00',
-        'mana-red': '#d3202a',
-        'mana-green': '#00733e',
-        'mana-gold': '#c8a84b',
-        'mana-colorless': '#8c8c8c',
-        // App theme
-        'app-bg': '#0f0f1a',
-        'app-surface': '#1a1a2e',
-        'app-surface2': '#16213e',
-        'app-border': '#2a2a4a',
-        'app-accent': '#7c3aed',
-        'app-accent2': '#a855f7',
+        'app-bg':       '#0f172a',
+        'app-surface':  '#1e293b',
+        'app-surface2': '#172033',
+        'app-border':   '#334155',
+        'app-accent':   '#6366f1',
+        'app-accent2':  '#818cf8',
+        'app-green':    '#22c55e',
+        'app-red':      '#ef4444',
       }
     },
   },

@@ -1,27 +1,35 @@
 import { BrowserRouter, Routes, Route, NavLink, useLocation } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
-import { Search, BookOpen, Layers, Settings } from 'lucide-react'
-import SearchPage from './pages/Search'
-import CollectionPage from './pages/Collection'
-import DecksPage from './pages/Decks'
-import DeckDetailPage from './pages/DeckDetail'
+import { Home, List, BarChart2, Target, Settings, Wallet } from 'lucide-react'
+import Dashboard from './pages/Dashboard'
+import Expenses from './pages/Expenses'
+import Analytics from './pages/Analytics'
+import Budgets from './pages/Budgets'
+import Accounts from './pages/Accounts'
+import SettingsPage from './pages/Settings'
 
-function NavBar() {
+function BottomNav() {
+  const location = useLocation()
+  const items = [
+    { to: '/',         icon: Home,     label: 'Accueil' },
+    { to: '/expenses', icon: List,     label: 'Dépenses' },
+    { to: '/analytics',icon: BarChart2,label: 'Analyse' },
+    { to: '/budgets',  icon: Target,   label: 'Budget' },
+    { to: '/accounts', icon: Wallet,   label: 'Comptes' },
+    { to: '/settings', icon: Settings, label: 'Réglages' },
+  ]
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-app-surface border-t border-app-border safe-bottom z-50">
-      <div className="flex items-stretch justify-around max-w-lg mx-auto">
-        <NavLink to="/" end className={({ isActive }) => `nav-item flex-1 ${isActive ? 'active' : ''}`}>
-          <Search size={20} />
-          <span>Search</span>
-        </NavLink>
-        <NavLink to="/collection" className={({ isActive }) => `nav-item flex-1 ${isActive ? 'active' : ''}`}>
-          <BookOpen size={20} />
-          <span>Collection</span>
-        </NavLink>
-        <NavLink to="/decks" className={({ isActive }) => `nav-item flex-1 ${isActive ? 'active' : ''}`}>
-          <Layers size={20} />
-          <span>Decks</span>
-        </NavLink>
+    <nav className="fixed bottom-0 left-0 right-0 bg-app-surface border-t border-app-border safe-bottom z-40">
+      <div className="flex justify-around items-center h-14 max-w-lg mx-auto">
+        {items.map(({ to, icon: Icon, label }) => {
+          const active = location.pathname === to
+          return (
+            <NavLink key={to} to={to} className={`nav-item ${active ? 'active' : ''}`}>
+              <Icon size={20} strokeWidth={active ? 2.5 : 1.8} />
+              <span className="text-[10px]">{label}</span>
+            </NavLink>
+          )
+        })}
       </div>
     </nav>
   )
@@ -30,24 +38,23 @@ function NavBar() {
 export default function App() {
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-app-bg pb-16">
-        <Toaster
-          position="top-center"
-          toastOptions={{
-            style: {
-              background: '#1a1a2e',
-              color: '#fff',
-              border: '1px solid #2a2a4a',
-            },
-          }}
-        />
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          style: { background: '#1e293b', color: '#f1f5f9', border: '1px solid #334155' },
+          duration: 2500,
+        }}
+      />
+      <div className="min-h-screen bg-app-bg max-w-lg mx-auto relative">
         <Routes>
-          <Route path="/" element={<SearchPage />} />
-          <Route path="/collection" element={<CollectionPage />} />
-          <Route path="/decks" element={<DecksPage />} />
-          <Route path="/decks/:deckId" element={<DeckDetailPage />} />
+          <Route path="/"          element={<Dashboard />} />
+          <Route path="/expenses"  element={<Expenses />} />
+          <Route path="/analytics" element={<Analytics />} />
+          <Route path="/budgets"   element={<Budgets />} />
+          <Route path="/accounts"  element={<Accounts />} />
+          <Route path="/settings"  element={<SettingsPage />} />
         </Routes>
-        <NavBar />
+        <BottomNav />
       </div>
     </BrowserRouter>
   )

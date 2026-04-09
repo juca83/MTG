@@ -3,9 +3,7 @@
 @tailwind utilities;
 
 @layer base {
-  * {
-    -webkit-tap-highlight-color: transparent;
-  }
+  * { -webkit-tap-highlight-color: transparent; }
 
   body {
     @apply bg-app-bg text-gray-100;
@@ -13,82 +11,33 @@
     overscroll-behavior: none;
   }
 
-  ::-webkit-scrollbar {
-    width: 4px;
-    height: 4px;
-  }
-
-  ::-webkit-scrollbar-track {
-    @apply bg-app-bg;
-  }
-
-  ::-webkit-scrollbar-thumb {
-    @apply bg-app-border rounded-full;
-  }
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { @apply bg-app-bg; }
+  ::-webkit-scrollbar-thumb { @apply bg-app-border rounded-full; }
 }
 
 @layer components {
-  .card-grid {
-    @apply grid gap-3;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  }
-
   .btn-primary {
-    @apply bg-app-accent hover:bg-app-accent2 text-white font-medium px-4 py-2 rounded-lg transition-colors;
+    @apply bg-app-accent hover:bg-app-accent2 text-white font-semibold px-4 py-2.5 rounded-xl transition-all active:scale-95;
   }
-
   .btn-secondary {
-    @apply bg-app-surface2 hover:bg-app-border text-gray-200 font-medium px-4 py-2 rounded-lg transition-colors border border-app-border;
+    @apply bg-app-surface2 hover:bg-app-border text-gray-200 font-medium px-4 py-2.5 rounded-xl transition-all border border-app-border active:scale-95;
   }
-
+  .btn-danger {
+    @apply bg-red-600 hover:bg-red-500 text-white font-semibold px-4 py-2.5 rounded-xl transition-all active:scale-95;
+  }
   .input-field {
-    @apply bg-app-surface2 border border-app-border text-gray-100 rounded-lg px-3 py-2 w-full
-           focus:outline-none focus:border-app-accent placeholder-gray-500;
+    @apply bg-app-surface2 border border-app-border text-gray-100 rounded-xl px-3 py-2.5 w-full
+           focus:outline-none focus:border-app-accent placeholder-gray-500 transition-colors;
   }
-
-  .badge {
-    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium;
-  }
-
-  .badge-location {
-    @apply badge bg-blue-900/60 text-blue-200 border border-blue-700/40;
-  }
-
-  .badge-deck {
-    @apply badge bg-purple-900/60 text-purple-200 border border-purple-700/40;
-  }
-
-  .badge-proxy {
-    @apply badge bg-yellow-900/60 text-yellow-200 border border-yellow-700/40;
-  }
-
-  .nav-item {
-    @apply flex flex-col items-center gap-1 py-2 px-4 text-xs text-gray-400
-           transition-colors cursor-pointer;
-  }
-
-  .nav-item.active {
-    @apply text-app-accent2;
-  }
-
   .surface-card {
-    @apply bg-app-surface rounded-xl border border-app-border;
+    @apply bg-app-surface rounded-2xl border border-app-border;
   }
-
-  /* Mana symbol colors */
-  .mana-W { @apply text-yellow-100 bg-yellow-100/20; }
-  .mana-U { @apply text-blue-400 bg-blue-400/20; }
-  .mana-B { @apply text-gray-300 bg-gray-800; }
-  .mana-R { @apply text-red-400 bg-red-400/20; }
-  .mana-G { @apply text-green-400 bg-green-400/20; }
-  .mana-C { @apply text-gray-400 bg-gray-400/20; }
-
-  /* Safe area padding for iPhone */
-  .safe-bottom {
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+  .nav-item {
+    @apply flex flex-col items-center gap-1 py-2 px-3 text-xs text-gray-400 transition-colors cursor-pointer;
   }
-
-  .safe-top {
-    padding-top: env(safe-area-inset-top, 0px);
-  }
+  .nav-item.active { @apply text-app-accent2; }
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 16px); }
+  .safe-top    { padding-top: env(safe-area-inset-top, 0px); }
+  .page-padding { @apply px-4 pb-28 pt-4; }
 }

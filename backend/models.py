@@ -1,143 +1,167 @@
 from pydantic import BaseModel
 from typing import Optional, List
-from datetime import datetime
+from datetime import date, datetime
 
 
-class ScryfallCard(BaseModel):
-    id: str
+# ── Users ────────────────────────────────────────────────────────────────────
+
+class UserCreate(BaseModel):
     name: str
-    set_code: str
-    set_name: str
-    collector_number: Optional[str] = None
-    image_uri_normal: Optional[str] = None
-    image_uri_small: Optional[str] = None
-    image_uri_art_crop: Optional[str] = None
-    colors: Optional[List[str]] = None
-    color_identity: Optional[List[str]] = None
-    type_line: Optional[str] = None
-    oracle_text: Optional[str] = None
-    cmc: Optional[float] = None
-    power: Optional[str] = None
-    toughness: Optional[str] = None
-    rarity: Optional[str] = None
-    price_usd: Optional[float] = None
-    price_eur: Optional[float] = None
-    price_usd_foil: Optional[float] = None
-    price_eur_foil: Optional[float] = None
-    keywords: Optional[List[str]] = None
-    layout: Optional[str] = None
-    mana_cost: Optional[str] = None
-    legalities: Optional[dict] = None
+    color: str = '#6366f1'
+    emoji: str = '👤'
 
-
-class Location(BaseModel):
-    id: int
-    name: str
-    type: str
-    color: Optional[str] = None
-    set_code: Optional[str] = None
-    person: Optional[str] = None
-    sort_order: int = 0
-
-
-class LocationCreate(BaseModel):
-    name: str
-    type: str
-    color: Optional[str] = None
-    set_code: Optional[str] = None
-    person: Optional[str] = None
-    sort_order: int = 0
-
-
-class CollectionEntryCreate(BaseModel):
-    scryfall_id: str
-    quantity: int = 1
-    foil: bool = False
-    language: str = "en"
-    location_id: Optional[int] = None
-    is_proxy: bool = False
-    notes: Optional[str] = None
-
-
-class CollectionEntryUpdate(BaseModel):
-    quantity: Optional[int] = None
-    foil: Optional[bool] = None
-    language: Optional[str] = None
-    location_id: Optional[int] = None
-    is_proxy: Optional[bool] = None
-    notes: Optional[str] = None
-
-
-class CollectionEntry(BaseModel):
-    id: int
-    scryfall_id: str
-    quantity: int
-    foil: bool
-    language: str
-    location_id: Optional[int] = None
-    is_proxy: bool
-    notes: Optional[str] = None
-    created_at: str
-    updated_at: str
-    # Joined fields
-    card: Optional[ScryfallCard] = None
-    location: Optional[Location] = None
-
-
-class DeckCreate(BaseModel):
-    name: str
-    format: Optional[str] = None
-    status: str = "in_progress"
-    description: Optional[str] = None
-    colors: Optional[List[str]] = None
-
-
-class DeckUpdate(BaseModel):
+class UserUpdate(BaseModel):
     name: Optional[str] = None
-    format: Optional[str] = None
-    status: Optional[str] = None
-    description: Optional[str] = None
-    colors: Optional[List[str]] = None
+    color: Optional[str] = None
+    emoji: Optional[str] = None
 
-
-class Deck(BaseModel):
+class User(BaseModel):
     id: int
     name: str
-    format: Optional[str] = None
-    status: str
-    description: Optional[str] = None
-    colors: Optional[List[str]] = None
+    color: str
+    emoji: str
     created_at: str
-    updated_at: str
-    card_count: Optional[int] = None
-    missing_count: Optional[int] = None
 
 
-class DeckEntryCreate(BaseModel):
-    scryfall_id: str
-    quantity: int = 1
-    collection_entry_id: Optional[int] = None
-    is_commander: bool = False
-    is_sideboard: bool = False
-    board: str = "main"
+# ── Accounts ─────────────────────────────────────────────────────────────────
 
+class AccountCreate(BaseModel):
+    name: str
+    type: str  # 'common' | 'personal'
+    owner_id: Optional[int] = None
+    color: str = '#10b981'
+    icon: str = '🏦'
+    initial_balance: float = 0.0
 
-class DeckEntryUpdate(BaseModel):
-    quantity: Optional[int] = None
-    collection_entry_id: Optional[int] = None
-    is_commander: Optional[bool] = None
-    is_sideboard: Optional[bool] = None
-    board: Optional[str] = None
+class AccountUpdate(BaseModel):
+    name: Optional[str] = None
+    type: Optional[str] = None
+    owner_id: Optional[int] = None
+    color: Optional[str] = None
+    icon: Optional[str] = None
+    initial_balance: Optional[float] = None
 
-
-class DeckEntry(BaseModel):
+class Account(BaseModel):
     id: int
-    deck_id: int
-    scryfall_id: str
-    quantity: int
-    collection_entry_id: Optional[int] = None
-    is_commander: bool
-    is_sideboard: bool
-    board: str
-    card: Optional[ScryfallCard] = None
-    collection_entry: Optional[CollectionEntry] = None
+    name: str
+    type: str
+    owner_id: Optional[int] = None
+    color: str
+    icon: str
+    initial_balance: float
+    created_at: str
+    owner_name: Optional[str] = None
+
+
+# ── Categories ───────────────────────────────────────────────────────────────
+
+class CategoryCreate(BaseModel):
+    name: str
+    icon: str = '💰'
+    color: str = '#6366f1'
+    is_income: bool = False
+    sort_order: int = 0
+
+class CategoryUpdate(BaseModel):
+    name: Optional[str] = None
+    icon: Optional[str] = None
+    color: Optional[str] = None
+    is_income: Optional[bool] = None
+    sort_order: Optional[int] = None
+
+class Category(BaseModel):
+    id: int
+    name: str
+    icon: str
+    color: str
+    is_income: bool
+    sort_order: int
+
+
+# ── Expense Splits ────────────────────────────────────────────────────────────
+
+class SplitCreate(BaseModel):
+    user_id: int
+    amount: float
+
+class Split(BaseModel):
+    id: int
+    expense_id: int
+    user_id: int
+    amount: float
+    is_settled: bool
+    user_name: Optional[str] = None
+    user_color: Optional[str] = None
+    user_emoji: Optional[str] = None
+
+
+# ── Expenses ─────────────────────────────────────────────────────────────────
+
+class ExpenseCreate(BaseModel):
+    amount: float
+    description: str
+    date: str  # ISO date string YYYY-MM-DD
+    paid_by: int
+    account_id: Optional[int] = None
+    category_id: Optional[int] = None
+    notes: Optional[str] = None
+    is_income: bool = False
+    splits: List[SplitCreate] = []
+
+class ExpenseUpdate(BaseModel):
+    amount: Optional[float] = None
+    description: Optional[str] = None
+    date: Optional[str] = None
+    paid_by: Optional[int] = None
+    account_id: Optional[int] = None
+    category_id: Optional[int] = None
+    notes: Optional[str] = None
+    is_income: Optional[bool] = None
+    splits: Optional[List[SplitCreate]] = None
+
+class Expense(BaseModel):
+    id: int
+    amount: float
+    description: str
+    date: str
+    paid_by: int
+    account_id: Optional[int] = None
+    category_id: Optional[int] = None
+    notes: Optional[str] = None
+    is_income: bool
+    created_at: str
+    # Joined
+    paid_by_name: Optional[str] = None
+    paid_by_color: Optional[str] = None
+    paid_by_emoji: Optional[str] = None
+    category_name: Optional[str] = None
+    category_icon: Optional[str] = None
+    category_color: Optional[str] = None
+    account_name: Optional[str] = None
+    splits: List[Split] = []
+
+
+# ── Budgets ──────────────────────────────────────────────────────────────────
+
+class BudgetCreate(BaseModel):
+    category_id: Optional[int] = None
+    amount: float
+    month: int
+    year: int
+    user_id: Optional[int] = None
+
+class BudgetUpdate(BaseModel):
+    amount: Optional[float] = None
+
+class Budget(BaseModel):
+    id: int
+    category_id: Optional[int] = None
+    amount: float
+    month: int
+    year: int
+    user_id: Optional[int] = None
+    created_at: str
+    category_name: Optional[str] = None
+    category_icon: Optional[str] = None
+    category_color: Optional[str] = None
+    spent: Optional[float] = None

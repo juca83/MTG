@@ -1,95 +1,100 @@
-# MTG Collection Manager
+# 💑 Budget Duo — Suivi de dépenses en couple
 
-A full-stack PWA for managing your Magic: The Gathering card collection, built with React + FastAPI + Scryfall.
+Application mobile-first (PWA) pour suivre vos dépenses en couple. Fonctionne sur iPhone comme une vraie app.
 
-## Features
+## Fonctionnalités
 
-- **Scryfall-powered search** with full syntax support and autocomplete
-- **Collection management** with location tracking (35 pre-configured locations)
-- **Deck builder** with analysis (mana curve, color distribution, card types)
-- **Missing cards tab** with similar card suggestions from your collection
-- **Manabox CSV import** with automatic location routing
-- **PWA** – installable on iPhone/iPad via Safari "Add to Home Screen"
-- **Dark theme**, mobile-first design
+- **Dépenses Tricount-like** : qui a payé, pour qui, combien, quelle catégorie
+- **Répartition flexible** : égale ou personnalisée entre membres
+- **18 catégories** pré-configurées (Loyer, Courses, Restaurant, Bar, Transport, Santé, Shopping...)
+- **Comptes bancaires** : compte commun, comptes personnels de chacun
+- **Dashboard** mensuel : balance, top dépenses, qui doit quoi
+- **Analyse** : graphiques par mois, par catégorie, par personne
+- **Budgets** mensuels avec indicateurs de progression
+- **PWA** : installable sur iPhone via Safari
 
-## Pre-configured Locations
-
-### Staple Binders (7)
-Staples Blanc, Bleu, Vert, Noir, Rouge, Incolore, Multicolor
-
-### Legendary Binders (2)
-Légendaires Mono, Légendaires Multi
-
-### Set Binders (11 configured + 11 placeholders)
-MH1, MH2, MH3, Commander Legends (CMR), Strixhaven (STX), Brothers War (BRO), Kaldheim (KHM), War of the Spark (WAR), 2XM + 11 placeholders
-
-### Other
-Rangement Bulk, À trier, Prêté à Arthur, Emprunté d'Arthur, À échanger
-
-## Quick Start
+## Démarrage rapide
 
 ```bash
 ./start.sh
 ```
 
-Then open http://localhost:3000
+L'app s'ouvre sur `http://localhost:3000`.
 
-### Manual Start
+### Démarrage manuel
 
-**Backend:**
+**Backend (Python) :**
 ```bash
 cd backend
+pip install -r requirements.txt
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-**Frontend:**
+**Frontend (Node.js) :**
 ```bash
 cd frontend
+npm install
 npm run dev
 ```
 
-## iPhone/iPad Access
+## Installation sur iPhone
 
-1. Find your machine's local IP: `hostname -I`
-2. Open `http://<your-ip>:3000` in Safari
-3. Tap Share → "Add to Home Screen"
+1. Trouvez l'IP de votre PC : `hostname -I`
+2. Les deux iPhones ouvrent `http://VOTRE_IP:3000` dans **Safari**
+3. Safari → Partager → **"Sur l'écran d'accueil"**
+4. L'app s'installe comme une vraie appli !
 
-## Tech Stack
+> **Important** : les deux iPhones et le PC doivent être sur le **même réseau WiFi**.
 
-| Layer | Tech |
-|-------|------|
-| Frontend | React 18, Tailwind CSS, Vite, PWA |
-| Backend | Python FastAPI, uvicorn |
-| Database | SQLite (local dev), PostgreSQL/Supabase schema at `schema.sql` |
-| Card Data | Scryfall API |
+## Première utilisation
 
-## API Endpoints
+1. **Réglages** → Créez les 2 profils (vous + votre compagne) avec emoji et couleur
+2. **Comptes** → Ajoutez vos comptes bancaires (Compte commun, compte perso de chacun)
+3. **Dépenses** → Commencez à saisir vos dépenses
+4. **Dashboard** → Visualisez votre situation mensuelle
 
-- `GET /api/cards/search?q=<scryfall_query>` - Search cards
-- `GET /api/cards/autocomplete?q=<name>` - Name autocomplete
-- `GET /api/collection` - List collection entries
-- `POST /api/collection` - Add card to collection
-- `GET /api/decks` - List decks
-- `POST /api/decks` - Create deck
-- `GET /api/decks/{id}/analysis` - Deck analysis
-- `GET /api/decks/{id}/missing` - Missing cards with suggestions
-- `POST /api/import/manabox` - Import Manabox CSV
-- Full docs at http://localhost:8000/docs
+## Stack technique
 
-## Migrating to Supabase
+| Couche    | Technologie                    |
+|-----------|-------------------------------|
+| Frontend  | React 18, Tailwind CSS, Vite, PWA |
+| Backend   | Python FastAPI, uvicorn        |
+| Base de données | SQLite (locale, zéro config) |
+| Graphiques | Recharts                      |
 
-1. Run `schema.sql` in your Supabase SQL editor
-2. Update backend to use `asyncpg` or `supabase-py` instead of `aiosqlite`
-3. Set `DATABASE_URL` environment variable
+## Structure des fichiers
 
-## Manabox CSV Import
+```
+backend/
+  main.py          # Application FastAPI
+  database.py      # Schéma SQLite + initialisation
+  models.py        # Modèles Pydantic
+  routers/
+    users.py        accounts.py
+    categories.py   expenses.py
+    analytics.py    budgets.py
 
-Export from Manabox → Import CSV button in Collection tab.
+frontend/src/
+  pages/
+    Dashboard.jsx   # Vue d'ensemble mensuelle
+    Expenses.jsx    # Liste et saisie de dépenses
+    Analytics.jsx   # Graphiques et analyses
+    Budgets.jsx     # Gestion des budgets
+    Accounts.jsx    # Comptes bancaires
+    Settings.jsx    # Profils et catégories
+  components/
+    ExpenseForm.jsx # Formulaire de saisie
+  api.js            # Client API
+```
 
-Category mapping:
-- `staples` → routes to correct color Staples binder (auto-detected from card's color identity)
-- `legendaries` → Légendaires Mono/Multi
-- `bulks` → Rangement Bulk
-- `for trades` → À échanger
-- `lent to arthur` → Prêté à Arthur
-- `proxy` (any category) → marked as Proxy
+## Données
+
+La base de données est dans `backend/expenses.db` (SQLite).
+Sauvegardez ce fichier pour conserver vos données.
+
+## Déploiement en ligne (optionnel)
+
+Pour accéder à l'app depuis n'importe où (sans être sur le même WiFi) :
+- **Backend** : Railway ou Render (gratuit)
+- **Frontend** : Vercel (gratuit)
+- **Base de données** : migrez vers Supabase (gratuit)
