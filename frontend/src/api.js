@@ -1,6 +1,8 @@
 import axios from 'axios'
 
-const api = axios.create({ baseURL: '/api' })
+// En ligne (Railway) : utilise VITE_API_URL. En local : utilise le proxy Vite.
+const BASE = import.meta.env.VITE_API_URL || ''
+const api = axios.create({ baseURL: BASE + '/api' })
 
 // ── Users ─────────────────────────────────────────────────────────────────────
 export const getUsers        = ()         => api.get('/users').then(r => r.data)
