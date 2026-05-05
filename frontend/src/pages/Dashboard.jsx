@@ -176,7 +176,7 @@ export default function Dashboard() {
                     <span>{format(new Date(e.date + 'T00:00:00'), 'd MMM', { locale: fr })}</span>
                   </p>
                 </div>
-                <span className={`font-semibold text-sm ${e.is_income ? 'text-green-400' : 'text-red-300'}`}>
+                <span className={`font-semibold text-sm ${e.is_income ? 'text-green-600' : 'text-red-500'}`}>
                   {e.is_income ? '+' : '-'}{fmt(e.amount)}
                 </span>
               </div>

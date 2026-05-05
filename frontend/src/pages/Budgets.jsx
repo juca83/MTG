@@ -23,7 +23,7 @@ function BudgetCard({ budget, onEdit, onDelete }) {
           </div>
         </div>
         <div className="flex gap-1">
-          <button onClick={() => onEdit(budget)} className="p-1.5 rounded-lg hover:bg-app-surface2 text-gray-500 hover:text-white">
+          <button onClick={() => onEdit(budget)} className="p-1.5 rounded-lg hover:bg-app-surface2 text-gray-500 hover:text-gray-900">
             <Pencil size={13} />
           </button>
           <button onClick={() => onDelete(budget.id)} className="p-1.5 rounded-lg hover:bg-red-500/20 text-gray-500 hover:text-red-400">
@@ -34,7 +34,7 @@ function BudgetCard({ budget, onEdit, onDelete }) {
 
       <div className="flex justify-between text-sm mb-2">
         <span className="text-gray-400">
-          Dépensé: <span className={over ? 'text-red-400 font-bold' : 'text-white font-semibold'}>{fmt(budget.spent)}</span>
+          Dépensé: <span className={over ? 'text-red-500 font-bold' : 'text-gray-900 font-semibold'}>{fmt(budget.spent)}</span>
         </span>
         <span className={over ? 'text-red-400 font-semibold' : 'text-green-400 font-semibold'}>
           {over ? `-${fmt(Math.abs(remaining))} dépassé` : `${fmt(remaining)} restant`}

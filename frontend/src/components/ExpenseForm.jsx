@@ -117,14 +117,14 @@ export default function ExpenseForm({ expense, onSave, onClose }) {
           <div className="flex gap-2">
             <button type="button"
               className={`flex-1 py-2.5 rounded-xl font-medium text-sm transition-all ${
-                !form.is_income ? 'bg-red-500/20 text-red-300 border border-red-500/40' : 'bg-app-surface2 text-gray-400 border border-app-border'
+                !form.is_income ? 'bg-red-500/20 text-red-600 border border-red-500/40' : 'bg-app-surface2 text-gray-400 border border-app-border'
               }`}
               onClick={() => set('is_income', false)}>
               💸 Dépense
             </button>
             <button type="button"
               className={`flex-1 py-2.5 rounded-xl font-medium text-sm transition-all ${
-                form.is_income ? 'bg-green-500/20 text-green-300 border border-green-500/40' : 'bg-app-surface2 text-gray-400 border border-app-border'
+                form.is_income ? 'bg-green-500/20 text-green-700 border border-green-500/40' : 'bg-app-surface2 text-gray-400 border border-app-border'
               }`}
               onClick={() => set('is_income', true)}>
               💰 Revenu
@@ -172,8 +172,8 @@ export default function ExpenseForm({ expense, onSave, onClose }) {
                   onClick={() => set('paid_by', u.id)}
                   className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium transition-all ${
                     form.paid_by === u.id
-                      ? 'border-app-accent bg-app-accent/20 text-white'
-                      : 'border-app-border bg-app-surface2 text-gray-300'
+                      ? 'border-app-accent bg-app-accent/20 text-indigo-700'
+                      : 'border-app-border bg-app-surface2 text-gray-500'
                   }`}>
                   <span className="text-lg">{u.emoji}</span>
                   <span style={{ color: u.color }}>{u.name}</span>
@@ -191,8 +191,8 @@ export default function ExpenseForm({ expense, onSave, onClose }) {
                   onClick={() => set('category_id', form.category_id === c.id ? '' : c.id)}
                   className={`flex items-center gap-1.5 px-2 py-2 rounded-xl border text-xs font-medium transition-all ${
                     form.category_id === c.id
-                      ? 'text-white border-transparent'
-                      : 'border-app-border bg-app-surface2 text-gray-300'
+                      ? 'text-gray-900 border-transparent'
+                      : 'border-app-border bg-app-surface2 text-gray-500'
                   }`}
                   style={form.category_id === c.id ? { background: c.color + '40', borderColor: c.color } : {}}>
                   <span>{c.icon}</span>

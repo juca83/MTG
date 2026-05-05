@@ -41,7 +41,7 @@ export default function App() {
       <Toaster
         position="top-center"
         toastOptions={{
-          style: { background: '#1e293b', color: '#f1f5f9', border: '1px solid #334155' },
+          style: { background: '#ffffff', color: '#1e293b', border: '1px solid #e2e8f0' },
           duration: 2500,
         }}
       />

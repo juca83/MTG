@@ -75,14 +75,14 @@ function AccountFormModal({ account, users, onSave, onClose }) {
               <button type="button"
                 onClick={() => { set('type', 'common'); set('owner_id', '') }}
                 className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition-all ${
-                  form.type === 'common' ? 'border-app-accent bg-app-accent/20 text-white' : 'border-app-border bg-app-surface2 text-gray-400'
+                  form.type === 'common' ? 'border-app-accent bg-app-accent/20 text-indigo-700' : 'border-app-border bg-app-surface2 text-gray-400'
                 }`}>
                 👫 Commun
               </button>
               <button type="button"
                 onClick={() => set('type', 'personal')}
                 className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition-all ${
-                  form.type === 'personal' ? 'border-app-accent bg-app-accent/20 text-white' : 'border-app-border bg-app-surface2 text-gray-400'
+                  form.type === 'personal' ? 'border-app-accent bg-app-accent/20 text-indigo-700' : 'border-app-border bg-app-surface2 text-gray-400'
                 }`}>
                 👤 Personnel
               </button>
@@ -99,8 +99,8 @@ function AccountFormModal({ account, users, onSave, onClose }) {
                     onClick={() => set('owner_id', u.id)}
                     className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm transition-all ${
                       form.owner_id === u.id || form.owner_id === String(u.id)
-                        ? 'border-app-accent bg-app-accent/20 text-white'
-                        : 'border-app-border bg-app-surface2 text-gray-300'
+                        ? 'border-app-accent bg-app-accent/20 text-indigo-700'
+                        : 'border-app-border bg-app-surface2 text-gray-500'
                     }`}>
                     <span className="text-lg">{u.emoji}</span>
                     <span style={{ color: u.color }}>{u.name}</span>
@@ -241,7 +241,7 @@ function AccountCard({ account, users, onEdit, onDelete }) {
         )}
       </div>
       <div className="flex gap-1">
-        <button onClick={onEdit} className="p-2 rounded-xl hover:bg-app-surface2 text-gray-500 hover:text-white transition-colors">
+        <button onClick={onEdit} className="p-2 rounded-xl hover:bg-app-surface2 text-gray-500 hover:text-gray-900 transition-colors">
           <Pencil size={15} />
         </button>
         <button onClick={onDelete} className="p-2 rounded-xl hover:bg-red-500/20 text-gray-500 hover:text-red-400 transition-colors">

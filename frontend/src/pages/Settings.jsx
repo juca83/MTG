@@ -23,7 +23,7 @@ function UserFormModal({ user, onSave, onClose }) {
       else       await createUser(form)
       toast.success(user ? 'Profil modifié' : 'Utilisateur créé')
       onSave()
-    } catch { toast.error('Erreur') } finally { setLoading(false) }
+    } catch (e) { toast.error(e.message || 'Erreur') } finally { setLoading(false) }
   }
 
   return (
@@ -117,7 +117,7 @@ function CategoryFormModal({ onSave, onClose }) {
             <span className="text-3xl">{form.icon}</span>
             <input type="text" placeholder="Nom de la catégorie"
               value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              className="bg-transparent flex-1 outline-none text-white placeholder-gray-500" autoFocus />
+              className="bg-transparent flex-1 outline-none text-gray-900 placeholder-gray-400" autoFocus />
           </div>
 
           <div>
@@ -147,13 +147,13 @@ function CategoryFormModal({ onSave, onClose }) {
           <div className="flex gap-2">
             <button type="button" onClick={() => setForm(f => ({ ...f, is_income: false }))}
               className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-all ${
-                !form.is_income ? 'border-app-accent bg-app-accent/20 text-white' : 'border-app-border bg-app-surface2 text-gray-400'
+                !form.is_income ? 'border-app-accent bg-app-accent/20 text-indigo-700' : 'border-app-border bg-app-surface2 text-gray-400'
               }`}>
               💸 Dépense
             </button>
             <button type="button" onClick={() => setForm(f => ({ ...f, is_income: true }))}
               className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-all ${
-                form.is_income ? 'border-app-accent bg-app-accent/20 text-white' : 'border-app-border bg-app-surface2 text-gray-400'
+                form.is_income ? 'border-app-accent bg-app-accent/20 text-indigo-700' : 'border-app-border bg-app-surface2 text-gray-400'
               }`}>
               💰 Revenu
             </button>
@@ -251,7 +251,7 @@ export default function Settings() {
                   </div>
                   <div className="flex gap-1">
                     <button onClick={() => { setEditUser(u); setShowUserForm(true) }}
-                      className="p-2 rounded-xl hover:bg-app-surface2 text-gray-500 hover:text-white transition-colors">
+                      className="p-2 rounded-xl hover:bg-app-surface2 text-gray-500 hover:text-gray-900 transition-colors">
                       <Pencil size={15} />
                     </button>
                     <button onClick={() => handleDeleteUser(u.id)}

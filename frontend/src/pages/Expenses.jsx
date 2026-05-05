@@ -198,12 +198,12 @@ export default function Expenses() {
                         )}
                       </div>
                       <div className="flex flex-col items-end gap-1.5">
-                        <span className={`font-bold text-sm ${e.is_income ? 'text-green-400' : 'text-red-300'}`}>
+                        <span className={`font-bold text-sm ${e.is_income ? 'text-green-600' : 'text-red-500'}`}>
                           {e.is_income ? '+' : '-'}{fmt(e.amount)}
                         </span>
                         <div className="flex gap-1">
                           <button onClick={() => { setEditExp(e); setShowForm(true) }}
-                            className="p-1.5 rounded-lg hover:bg-app-surface2 text-gray-500 hover:text-white transition-colors">
+                            className="p-1.5 rounded-lg hover:bg-app-surface2 text-gray-500 hover:text-gray-900 transition-colors">
                             <Pencil size={13} />
                           </button>
                           <button onClick={() => handleDelete(e.id)}
