@@ -177,7 +177,7 @@ export default function Settings() {
   const [tab, setTab]                     = useState('users')
 
   function load() {
-    getUsers().then(setUsers)
+    getUsers().then(setUsers).catch(e => toast.error('Connexion Supabase: ' + e.message))
     getCategories().then(setCategories)
   }
   useEffect(() => { load() }, [])
