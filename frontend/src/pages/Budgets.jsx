@@ -81,7 +81,7 @@ function BudgetFormModal({ budget, month, year, categories, onSave, onClose }) {
       toast.success(budget ? 'Budget modifié' : 'Budget créé')
       onSave()
     } catch (err) {
-      if (err.response?.status === 409) toast.error('Budget déjà existant pour cette catégorie')
+      if (err.isConflict) toast.error('Budget déjà existant pour cette catégorie')
       else toast.error('Erreur')
     } finally {
       setLoading(false)

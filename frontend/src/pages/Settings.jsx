@@ -196,7 +196,7 @@ export default function Settings() {
       toast.success('Catégorie supprimée')
       load()
     } catch (e) {
-      toast.error(e.response?.data?.detail || 'Impossible de supprimer')
+      toast.error(e.message || 'Impossible de supprimer')
     }
   }
 
