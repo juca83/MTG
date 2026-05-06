@@ -129,21 +129,22 @@ export async function deleteAccount(id) {
 }
 
 export async function getAccountsWithBalance() {
-  const [{ data: accts, error }, expenses] = await Promise.all([
-    supabase.from('accounts').select('*, owner:users(name)').order('id'),
-    fetchRawExpenses({})
-  ])
+  const { data: accts, error } = await supabase.from('accounts').select('*, owner:users(name)').order('id')
   if (error) throw error
+  let expenses = []
+  try { expenses = await fetchRawExpenses({}) } catch { /* balance uses initial_balance only */ }
   return (accts || []).map(a => {
-    const linked = expenses.filter(e => e.account_id === a.id)
+    const linked = expenses.filter(e => e.account_id === a.id || e.to_account_id === a.id)
     const relevant = a.balance_date
       ? linked.filter(e => e.date > a.balance_date)
       : linked
     const flow = relevant.reduce((s, e) => {
       if (e.is_transfer) {
-        if (e.to_account_id === a.id) return s + e.amount  // incoming transfer
-        return s - e.amount                                  // outgoing transfer
+        if (e.to_account_id === a.id) return s + e.amount
+        if (e.account_id   === a.id) return s - e.amount
+        return s
       }
+      if (e.account_id !== a.id) return s
       return e.is_income ? s + e.amount : s - e.amount
     }, 0)
     return {
@@ -298,7 +299,9 @@ export async function getByUser({ year, month } = {}) {
 }
 
 export async function getBalances() {
-  const [expenses, users] = await Promise.all([fetchRawExpenses({}), getUsers()])
+  let expenses = []
+  try { expenses = await fetchRawExpenses({}) } catch { /* totals will be 0 */ }
+  const users = await getUsers()
   const { data: splits } = await supabase
     .from('expense_splits')
     .select('*, expense:expenses!expense_id(paid_by, is_income)')
@@ -338,12 +341,13 @@ export async function getWeekly({ year, month } = {}) {
 
 // ── Budgets ───────────────────────────────────────────────────────────────────
 export async function getBudgets({ month, year }) {
-  const [{ data: budgets, error }, expenses, { data: accts }] = await Promise.all([
+  const [{ data: budgets, error }, { data: accts }] = await Promise.all([
     supabase.from('budgets').select('*, category:categories(name, icon, color)').eq('month', month).eq('year', year).order('id'),
-    fetchRawExpenses({ year, month }),
     supabase.from('accounts').select('id, type, owner_id'),
   ])
   if (error) throw error
+  let expenses = []
+  try { expenses = await fetchRawExpenses({ year, month }) } catch { /* spent defaults to 0 */ }
   const accounts = accts || []
 
   return (budgets || []).map(b => {
