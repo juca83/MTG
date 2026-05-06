@@ -12,15 +12,16 @@ export default function ExpenseForm({ expense, onSave, onClose }) {
 
   const today = format(new Date(), 'yyyy-MM-dd')
   const [form, setForm] = useState({
-    amount:      expense?.amount ?? '',
-    description: expense?.description ?? '',
-    date:        expense?.date ?? today,
-    paid_by:     expense?.paid_by ?? '',
-    account_id:  expense?.account_id ?? '',
-    category_id: expense?.category_id ?? '',
-    notes:       expense?.notes ?? '',
-    is_income:   expense?.is_income ?? false,
-    is_transfer: expense?.is_transfer ?? false,
+    amount:        expense?.amount        ?? '',
+    description:   expense?.description   ?? '',
+    date:          expense?.date          ?? today,
+    paid_by:       expense?.paid_by       ?? '',
+    account_id:    expense?.account_id    ?? '',
+    to_account_id: expense?.to_account_id ?? '',
+    category_id:   expense?.category_id   ?? '',
+    notes:         expense?.notes         ?? '',
+    is_income:     expense?.is_income     ?? false,
+    is_transfer:   expense?.is_transfer   ?? false,
   })
 
   const [splitFor, setSplitFor] = useState(() => {
@@ -29,12 +30,28 @@ export default function ExpenseForm({ expense, onSave, onClose }) {
     return 'all'
   })
 
+  // Per-user custom amounts when "Les deux" is selected
+  const [splitAmounts, setSplitAmounts] = useState(() => {
+    if (expense?.splits?.length >= 2) {
+      return Object.fromEntries(expense.splits.map(s => [s.user_id, s.amount]))
+    }
+    return {}
+  })
+
   useEffect(() => {
     Promise.all([getUsers(), getCategories(), getAccounts()]).then(([u, c, a]) => {
       setUsers(u)
       setCategories(c)
       setAccounts(a)
       if (!form.paid_by && u.length > 0) setForm(f => ({ ...f, paid_by: u[0].id }))
+      // If editing with 'all' split but no amounts set yet, compute 50/50
+      if (splitFor === 'all' && Object.keys(splitAmounts).length === 0 && u.length > 0) {
+        const amt = parseFloat(String(expense?.amount ?? 0))
+        if (amt > 0) {
+          const each = parseFloat((amt / u.length).toFixed(2))
+          setSplitAmounts(Object.fromEntries(u.map(x => [x.id, each])))
+        }
+      }
     })
   }, [])
 
@@ -42,6 +59,15 @@ export default function ExpenseForm({ expense, onSave, onClose }) {
 
   function setType(isIncome, isTransfer) {
     setForm(f => ({ ...f, is_income: isIncome, is_transfer: isTransfer, category_id: '' }))
+  }
+
+  function selectAll() {
+    setSplitFor('all')
+    const amt = parseFloat(String(form.amount).replace(',', '.'))
+    if (!isNaN(amt) && amt > 0 && users.length > 0) {
+      const each = parseFloat((amt / users.length).toFixed(2))
+      setSplitAmounts(Object.fromEntries(users.map(u => [u.id, each])))
+    }
   }
 
   async function handleSubmit(e) {
@@ -53,18 +79,21 @@ export default function ExpenseForm({ expense, onSave, onClose }) {
       let splits = []
       if (!form.is_income && !form.is_transfer) {
         if (splitFor === 'all' && users.length > 0) {
-          const each = amt / users.length
-          splits = users.map(u => ({ user_id: u.id, amount: parseFloat(each.toFixed(2)) }))
+          splits = users.map(u => ({
+            user_id: u.id,
+            amount:  parseFloat(splitAmounts[u.id]) || 0,
+          }))
         } else if (typeof splitFor === 'number') {
           splits = [{ user_id: splitFor, amount: amt }]
         }
       }
       const payload = {
         ...form,
-        amount:      amt,
-        paid_by:     parseInt(form.paid_by),
-        account_id:  form.account_id  ? parseInt(form.account_id)  : null,
-        category_id: form.category_id ? parseInt(form.category_id) : null,
+        amount:        amt,
+        paid_by:       parseInt(form.paid_by),
+        account_id:    form.account_id    ? parseInt(form.account_id)    : null,
+        to_account_id: form.to_account_id ? parseInt(form.to_account_id) : null,
+        category_id:   form.category_id   ? parseInt(form.category_id)   : null,
         splits,
       }
       const result = expense
@@ -82,17 +111,14 @@ export default function ExpenseForm({ expense, onSave, onClose }) {
   const expCategories = categories.filter(c => !c.is_income)
   const incCategories = categories.filter(c => c.is_income)
   const shownCats     = form.is_income ? incCategories : expCategories
-
-  const amtNum = parseFloat(String(form.amount).replace(',', '.'))
+  const amtNum        = parseFloat(String(form.amount).replace(',', '.'))
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm">
       <div className="w-full max-w-lg bg-app-surface rounded-t-3xl border-t border-app-border max-h-[92vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-3 sticky top-0 bg-app-surface z-10">
-          <h2 className="text-lg font-bold">
-            {expense ? 'Modifier' : 'Nouvelle entrée'}
-          </h2>
+          <h2 className="text-lg font-bold">{expense ? 'Modifier' : 'Nouvelle entrée'}</h2>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-app-surface2 transition-colors">
             <X size={20} />
           </button>
@@ -134,9 +160,7 @@ export default function ExpenseForm({ expense, onSave, onClose }) {
           <div>
             <label className="text-xs text-gray-400 mb-1 block">Montant (CHF) *</label>
             <input
-              type="text"
-              inputMode="decimal"
-              placeholder="0.00"
+              type="text" inputMode="decimal" placeholder="0.00"
               value={form.amount}
               onChange={e => set('amount', e.target.value.replace(',', '.'))}
               className="input-field text-2xl font-bold text-center"
@@ -147,8 +171,7 @@ export default function ExpenseForm({ expense, onSave, onClose }) {
           {/* Description */}
           <div>
             <label className="text-xs text-gray-400 mb-1 block">Description *</label>
-            <input
-              type="text" placeholder="Ex: Courses Migros"
+            <input type="text" placeholder="Ex: Courses Migros"
               value={form.description}
               onChange={e => set('description', e.target.value)}
               className="input-field"
@@ -207,7 +230,7 @@ export default function ExpenseForm({ expense, onSave, onClose }) {
             </div>
           )}
 
-          {/* Account */}
+          {/* Account source */}
           {accounts.length > 0 && (
             <div>
               <label className="text-xs text-gray-400 mb-1 block">
@@ -217,6 +240,20 @@ export default function ExpenseForm({ expense, onSave, onClose }) {
                 className="input-field">
                 <option value="">— Aucun compte —</option>
                 {accounts.map(a => (
+                  <option key={a.id} value={a.id}>{a.icon} {a.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Account destination (transfers only) */}
+          {form.is_transfer && accounts.length > 0 && (
+            <div>
+              <label className="text-xs text-gray-400 mb-1 block">Compte destination</label>
+              <select value={form.to_account_id} onChange={e => set('to_account_id', e.target.value)}
+                className="input-field">
+                <option value="">— Choisir le compte —</option>
+                {accounts.filter(a => String(a.id) !== String(form.account_id)).map(a => (
                   <option key={a.id} value={a.id}>{a.icon} {a.name}</option>
                 ))}
               </select>
@@ -250,7 +287,7 @@ export default function ExpenseForm({ expense, onSave, onClose }) {
                   </button>
                 ))}
                 <button type="button"
-                  onClick={() => setSplitFor('all')}
+                  onClick={selectAll}
                   className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border transition-all ${
                     splitFor === 'all'
                       ? 'border-app-accent bg-app-accent/20 text-indigo-700'
@@ -259,16 +296,47 @@ export default function ExpenseForm({ expense, onSave, onClose }) {
                   👫 Les deux
                 </button>
               </div>
-              {splitFor !== 'none' && form.amount && !isNaN(amtNum) && (
+
+              {/* Single-user preview */}
+              {typeof splitFor === 'number' && !isNaN(amtNum) && (
                 <p className="text-xs text-gray-400 mt-2">
-                  {splitFor === 'all'
-                    ? users.map(u => `${u.emoji} ${u.name}: ${(amtNum / users.length).toFixed(2)} CHF`).join(' · ')
-                    : (() => {
-                        const u = users.find(x => x.id === splitFor)
-                        return u ? `${u.emoji} ${u.name}: ${amtNum.toFixed(2)} CHF` : ''
-                      })()
-                  }
+                  {(() => {
+                    const u = users.find(x => x.id === splitFor)
+                    return u ? `${u.emoji} ${u.name}: ${amtNum.toFixed(2)} CHF` : ''
+                  })()}
                 </p>
+              )}
+
+              {/* Les deux: editable inputs */}
+              {splitFor === 'all' && (
+                <div className="mt-2 space-y-2 p-3 bg-app-surface2 rounded-xl border border-app-border">
+                  {users.map(u => (
+                    <div key={u.id} className="flex items-center gap-2">
+                      <span className="text-base">{u.emoji}</span>
+                      <span className="text-sm font-medium flex-1" style={{ color: u.color }}>{u.name}</span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={splitAmounts[u.id] ?? ''}
+                        onChange={e => setSplitAmounts(prev => ({
+                          ...prev,
+                          [u.id]: e.target.value.replace(',', '.')
+                        }))}
+                        className="input-field w-24 text-right py-1.5 text-sm"
+                      />
+                      <span className="text-xs text-gray-400 w-8">CHF</span>
+                    </div>
+                  ))}
+                  {!isNaN(amtNum) && amtNum > 0 && (() => {
+                    const total = users.reduce((s, u) => s + (parseFloat(splitAmounts[u.id]) || 0), 0)
+                    const ok    = Math.abs(total - amtNum) < 0.02
+                    return (
+                      <p className={`text-xs text-right font-medium ${ok ? 'text-green-500' : 'text-red-400'}`}>
+                        {total.toFixed(2)} / {amtNum.toFixed(2)} CHF {ok ? '✓' : '⚠️'}
+                      </p>
+                    )
+                  })()}
+                </div>
               )}
             </div>
           )}

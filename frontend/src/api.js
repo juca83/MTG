@@ -56,6 +56,7 @@ function transformExpense(e) {
     notes:          e.notes,
     is_income:      e.is_income,
     is_transfer:    e.is_transfer ?? false,
+    to_account_id:  e.to_account_id || null,
     created_at:     e.created_at,
     paid_by_name:   e.paid_by_user?.name  || null,
     paid_by_color:  e.paid_by_user?.color || null,
@@ -138,9 +139,13 @@ export async function getAccountsWithBalance() {
     const relevant = a.balance_date
       ? linked.filter(e => e.date > a.balance_date)
       : linked
-    const flow = relevant.reduce((s, e) =>
-      e.is_income ? s + e.amount : s - e.amount
-    , 0)
+    const flow = relevant.reduce((s, e) => {
+      if (e.is_transfer) {
+        if (e.to_account_id === a.id) return s + e.amount  // incoming transfer
+        return s - e.amount                                  // outgoing transfer
+      }
+      return e.is_income ? s + e.amount : s - e.amount
+    }, 0)
     return {
       ...a,
       owner_name: a.owner?.name || null,
@@ -333,22 +338,47 @@ export async function getWeekly({ year, month } = {}) {
 
 // ── Budgets ───────────────────────────────────────────────────────────────────
 export async function getBudgets({ month, year }) {
-  const [{ data: budgets, error }, expenses] = await Promise.all([
+  const [{ data: budgets, error }, expenses, { data: accts }] = await Promise.all([
     supabase.from('budgets').select('*, category:categories(name, icon, color)').eq('month', month).eq('year', year).order('id'),
     fetchRawExpenses({ year, month }),
+    supabase.from('accounts').select('id, type, owner_id'),
   ])
   if (error) throw error
-  return (budgets || []).map(b => ({
-    ...b,
-    category_name:  b.category?.name  || null,
-    category_icon:  b.category?.icon  || null,
-    category_color: b.category?.color || null,
-    category: undefined,
-    spent: (b.category_id
-      ? expenses.filter(e => !e.is_income && !e.is_transfer && e.category_id === b.category_id)
-      : expenses.filter(e => !e.is_income && !e.is_transfer)
-    ).reduce((s, e) => s + e.amount, 0),
-  }))
+  const accounts = accts || []
+
+  return (budgets || []).map(b => {
+    let base = expenses.filter(e => !e.is_income && !(e.is_transfer ?? false))
+    if (b.category_id) base = base.filter(e => e.category_id === b.category_id)
+
+    let filtered
+    if (accounts.length === 0) {
+      filtered = base
+    } else if (b.user_id != null) {
+      // Personal budget: this user's personal account, NOT split between all
+      filtered = base.filter(e => {
+        if ((e.splits || []).length >= 2) return false
+        const acct = accounts.find(a => a.id === e.account_id)
+        if (acct?.owner_id === b.user_id && acct?.type === 'personal') return true
+        if (!e.account_id && e.paid_by === b.user_id) return true
+        return false
+      })
+    } else {
+      // Global budget: common accounts + expenses split between multiple people
+      filtered = base.filter(e => {
+        const acct = accounts.find(a => a.id === e.account_id)
+        return acct?.type === 'common' || (e.splits || []).length >= 2
+      })
+    }
+
+    return {
+      ...b,
+      category_name:  b.category?.name  || null,
+      category_icon:  b.category?.icon  || null,
+      category_color: b.category?.color || null,
+      category: undefined,
+      spent: filtered.reduce((s, e) => s + e.amount, 0),
+    }
+  })
 }
 
 export async function createBudget(budgetData) {

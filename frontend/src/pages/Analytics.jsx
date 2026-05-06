@@ -196,7 +196,7 @@ export default function Analytics() {
                         <Cell key={i} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(val) => fmt(val)} contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 12 }} />
+                    <Tooltip formatter={(val) => fmt(val)} contentStyle={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 12 }} />
                     <Legend
                       formatter={(value, entry) => (
                         <span style={{ color: '#94a3b8', fontSize: 12 }}>{entry.payload.icon} {value}</span>
