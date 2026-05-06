@@ -1,17 +1,14 @@
 import { useState, useEffect } from 'react'
-import { X, ChevronDown } from 'lucide-react'
+import { X } from 'lucide-react'
 import { format } from 'date-fns'
 import toast from 'react-hot-toast'
 import { createExpense, updateExpense, getUsers, getCategories, getAccounts } from '../api'
 
-const EMOJIS = ['👤','👨','👩','🧑','😊','😎','🦄','🐼','🐸','🦊']
-const COLORS = ['#6366f1','#ec4899','#f97316','#22c55e','#3b82f6','#a855f7','#ef4444','#14b8a6']
-
 export default function ExpenseForm({ expense, onSave, onClose }) {
-  const [users, setUsers]         = useState([])
+  const [users, setUsers]           = useState([])
   const [categories, setCategories] = useState([])
-  const [accounts, setAccounts]   = useState([])
-  const [loading, setLoading]     = useState(false)
+  const [accounts, setAccounts]     = useState([])
+  const [loading, setLoading]       = useState(false)
 
   const today = format(new Date(), 'yyyy-MM-dd')
   const [form, setForm] = useState({
@@ -23,11 +20,14 @@ export default function ExpenseForm({ expense, onSave, onClose }) {
     category_id: expense?.category_id ?? '',
     notes:       expense?.notes ?? '',
     is_income:   expense?.is_income ?? false,
-    splits:      expense?.splits ?? [],
+    is_transfer: expense?.is_transfer ?? false,
   })
-  const [splitMode, setSplitMode] = useState(
-    expense?.splits?.length > 0 ? 'custom' : 'equal'
-  )
+
+  const [splitFor, setSplitFor] = useState(() => {
+    if (!expense?.splits || expense.splits.length === 0) return 'none'
+    if (expense.splits.length === 1) return expense.splits[0].user_id
+    return 'all'
+  })
 
   useEffect(() => {
     Promise.all([getUsers(), getCategories(), getAccounts()]).then(([u, c, a]) => {
@@ -38,37 +38,10 @@ export default function ExpenseForm({ expense, onSave, onClose }) {
     })
   }, [])
 
-  // Auto-compute equal splits
-  useEffect(() => {
-    if (splitMode === 'equal' && users.length > 0 && form.amount) {
-      const each = parseFloat(form.amount) / users.length
-      setForm(f => ({
-        ...f,
-        splits: users.map(u => ({ user_id: u.id, amount: parseFloat(each.toFixed(2)) }))
-      }))
-    } else if (splitMode === 'none') {
-      setForm(f => ({ ...f, splits: [] }))
-    }
-  }, [splitMode, form.amount, users])
-
   function set(key, val) { setForm(f => ({ ...f, [key]: val })) }
 
-  function updateSplit(user_id, amount) {
-    setForm(f => ({
-      ...f,
-      splits: f.splits.map(s =>
-        s.user_id === user_id ? { ...s, amount: parseFloat(amount) || 0 } : s
-      )
-    }))
-  }
-
-  function toggleSplitUser(user_id) {
-    const exists = form.splits.find(s => s.user_id === user_id)
-    if (exists) {
-      setForm(f => ({ ...f, splits: f.splits.filter(s => s.user_id !== user_id) }))
-    } else {
-      setForm(f => ({ ...f, splits: [...f.splits, { user_id, amount: 0 }] }))
-    }
+  function setType(isIncome, isTransfer) {
+    setForm(f => ({ ...f, is_income: isIncome, is_transfer: isTransfer, category_id: '' }))
   }
 
   async function handleSubmit(e) {
@@ -76,18 +49,29 @@ export default function ExpenseForm({ expense, onSave, onClose }) {
     if (!form.amount || !form.paid_by) { toast.error('Montant et payeur requis'); return }
     setLoading(true)
     try {
+      const amt = parseFloat(String(form.amount).replace(',', '.'))
+      let splits = []
+      if (!form.is_income && !form.is_transfer) {
+        if (splitFor === 'all' && users.length > 0) {
+          const each = amt / users.length
+          splits = users.map(u => ({ user_id: u.id, amount: parseFloat(each.toFixed(2)) }))
+        } else if (typeof splitFor === 'number') {
+          splits = [{ user_id: splitFor, amount: amt }]
+        }
+      }
       const payload = {
         ...form,
-        amount:      parseFloat(form.amount),
+        amount:      amt,
         paid_by:     parseInt(form.paid_by),
         account_id:  form.account_id  ? parseInt(form.account_id)  : null,
         category_id: form.category_id ? parseInt(form.category_id) : null,
+        splits,
       }
       const result = expense
         ? await updateExpense(expense.id, payload)
         : await createExpense(payload)
       onSave(result)
-      toast.success(expense ? 'Dépense modifiée' : 'Dépense ajoutée !')
+      toast.success(expense ? 'Modifié !' : 'Ajouté !')
     } catch {
       toast.error('Erreur lors de la sauvegarde')
     } finally {
@@ -99,13 +83,15 @@ export default function ExpenseForm({ expense, onSave, onClose }) {
   const incCategories = categories.filter(c => c.is_income)
   const shownCats     = form.is_income ? incCategories : expCategories
 
+  const amtNum = parseFloat(String(form.amount).replace(',', '.'))
+
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm">
       <div className="w-full max-w-lg bg-app-surface rounded-t-3xl border-t border-app-border max-h-[92vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-3 sticky top-0 bg-app-surface z-10">
           <h2 className="text-lg font-bold">
-            {expense ? 'Modifier' : 'Nouvelle dépense'}
+            {expense ? 'Modifier' : 'Nouvelle entrée'}
           </h2>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-app-surface2 transition-colors">
             <X size={20} />
@@ -113,31 +99,46 @@ export default function ExpenseForm({ expense, onSave, onClose }) {
         </div>
 
         <form onSubmit={handleSubmit} className="px-5 pb-6 space-y-4">
-          {/* Income / Expense toggle */}
+          {/* Type toggle */}
           <div className="flex gap-2">
             <button type="button"
               className={`flex-1 py-2.5 rounded-xl font-medium text-sm transition-all ${
-                !form.is_income ? 'bg-red-500/20 text-red-600 border border-red-500/40' : 'bg-app-surface2 text-gray-400 border border-app-border'
+                !form.is_income && !form.is_transfer
+                  ? 'bg-red-500/20 text-red-600 border border-red-500/40'
+                  : 'bg-app-surface2 text-gray-400 border border-app-border'
               }`}
-              onClick={() => set('is_income', false)}>
+              onClick={() => setType(false, false)}>
               💸 Dépense
             </button>
             <button type="button"
               className={`flex-1 py-2.5 rounded-xl font-medium text-sm transition-all ${
-                form.is_income ? 'bg-green-500/20 text-green-700 border border-green-500/40' : 'bg-app-surface2 text-gray-400 border border-app-border'
+                form.is_income
+                  ? 'bg-green-500/20 text-green-700 border border-green-500/40'
+                  : 'bg-app-surface2 text-gray-400 border border-app-border'
               }`}
-              onClick={() => set('is_income', true)}>
+              onClick={() => setType(true, false)}>
               💰 Revenu
+            </button>
+            <button type="button"
+              className={`flex-1 py-2.5 rounded-xl font-medium text-sm transition-all ${
+                form.is_transfer
+                  ? 'bg-blue-500/20 text-blue-700 border border-blue-500/40'
+                  : 'bg-app-surface2 text-gray-400 border border-app-border'
+              }`}
+              onClick={() => setType(false, true)}>
+              🔄 Transfert
             </button>
           </div>
 
           {/* Amount */}
           <div>
-            <label className="text-xs text-gray-400 mb-1 block">Montant (€) *</label>
+            <label className="text-xs text-gray-400 mb-1 block">Montant (CHF) *</label>
             <input
-              type="number" step="0.01" min="0" placeholder="0.00"
+              type="text"
+              inputMode="decimal"
+              placeholder="0.00"
               value={form.amount}
-              onChange={e => set('amount', e.target.value)}
+              onChange={e => set('amount', e.target.value.replace(',', '.'))}
               className="input-field text-2xl font-bold text-center"
               autoFocus
             />
@@ -147,7 +148,7 @@ export default function ExpenseForm({ expense, onSave, onClose }) {
           <div>
             <label className="text-xs text-gray-400 mb-1 block">Description *</label>
             <input
-              type="text" placeholder="Ex: Courses Carrefour"
+              type="text" placeholder="Ex: Courses Migros"
               value={form.description}
               onChange={e => set('description', e.target.value)}
               className="input-field"
@@ -165,7 +166,9 @@ export default function ExpenseForm({ expense, onSave, onClose }) {
 
           {/* Paid by */}
           <div>
-            <label className="text-xs text-gray-400 mb-1 block">Payé par *</label>
+            <label className="text-xs text-gray-400 mb-1 block">
+              {form.is_transfer ? 'De' : 'Payé par'} *
+            </label>
             <div className="flex gap-2 flex-wrap">
               {users.map(u => (
                 <button key={u.id} type="button"
@@ -182,30 +185,34 @@ export default function ExpenseForm({ expense, onSave, onClose }) {
             </div>
           </div>
 
-          {/* Category */}
-          <div>
-            <label className="text-xs text-gray-400 mb-1 block">Catégorie</label>
-            <div className="grid grid-cols-3 gap-1.5 max-h-48 overflow-y-auto">
-              {shownCats.map(c => (
-                <button key={c.id} type="button"
-                  onClick={() => set('category_id', form.category_id === c.id ? '' : c.id)}
-                  className={`flex items-center gap-1.5 px-2 py-2 rounded-xl border text-xs font-medium transition-all ${
-                    form.category_id === c.id
-                      ? 'text-gray-900 border-transparent'
-                      : 'border-app-border bg-app-surface2 text-gray-500'
-                  }`}
-                  style={form.category_id === c.id ? { background: c.color + '40', borderColor: c.color } : {}}>
-                  <span>{c.icon}</span>
-                  <span className="truncate">{c.name}</span>
-                </button>
-              ))}
+          {/* Category (hidden for transfers) */}
+          {!form.is_transfer && (
+            <div>
+              <label className="text-xs text-gray-400 mb-1 block">Catégorie</label>
+              <div className="grid grid-cols-3 gap-1.5 max-h-48 overflow-y-auto">
+                {shownCats.map(c => (
+                  <button key={c.id} type="button"
+                    onClick={() => set('category_id', form.category_id === c.id ? '' : c.id)}
+                    className={`flex items-center gap-1.5 px-2 py-2 rounded-xl border text-xs font-medium transition-all ${
+                      form.category_id === c.id
+                        ? 'text-gray-900 border-transparent'
+                        : 'border-app-border bg-app-surface2 text-gray-500'
+                    }`}
+                    style={form.category_id === c.id ? { background: c.color + '40', borderColor: c.color } : {}}>
+                    <span>{c.icon}</span>
+                    <span className="truncate">{c.name}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Account */}
           {accounts.length > 0 && (
             <div>
-              <label className="text-xs text-gray-400 mb-1 block">Compte bancaire</label>
+              <label className="text-xs text-gray-400 mb-1 block">
+                {form.is_transfer ? 'Compte source' : 'Compte bancaire'}
+              </label>
               <select value={form.account_id} onChange={e => set('account_id', e.target.value)}
                 className="input-field">
                 <option value="">— Aucun compte —</option>
@@ -216,75 +223,52 @@ export default function ExpenseForm({ expense, onSave, onClose }) {
             </div>
           )}
 
-          {/* Splits */}
-          {!form.is_income && users.length > 1 && (
+          {/* Split — only for expenses */}
+          {!form.is_income && !form.is_transfer && users.length > 1 && (
             <div>
               <label className="text-xs text-gray-400 mb-2 block">Répartition</label>
-              <div className="flex gap-2 mb-3">
-                {['none','equal','custom'].map(m => (
-                  <button key={m} type="button"
-                    onClick={() => setSplitMode(m)}
-                    className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                      splitMode === m
-                        ? 'bg-app-accent text-white border-app-accent'
+              <div className="flex gap-2 flex-wrap">
+                <button type="button"
+                  onClick={() => setSplitFor('none')}
+                  className={`px-3 py-2 rounded-xl text-sm font-medium border transition-all ${
+                    splitFor === 'none'
+                      ? 'bg-app-accent text-white border-app-accent'
+                      : 'bg-app-surface2 text-gray-400 border-app-border'
+                  }`}>
+                  Aucune
+                </button>
+                {users.map(u => (
+                  <button key={u.id} type="button"
+                    onClick={() => setSplitFor(u.id)}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border transition-all ${
+                      splitFor === u.id
+                        ? 'border-app-accent bg-app-accent/20 text-indigo-700'
                         : 'bg-app-surface2 text-gray-400 border-app-border'
                     }`}>
-                    {m === 'none' ? 'Aucune' : m === 'equal' ? 'Égale' : 'Perso'}
+                    <span>{u.emoji}</span>
+                    <span style={{ color: u.color }}>{u.name}</span>
                   </button>
                 ))}
+                <button type="button"
+                  onClick={() => setSplitFor('all')}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border transition-all ${
+                    splitFor === 'all'
+                      ? 'border-app-accent bg-app-accent/20 text-indigo-700'
+                      : 'bg-app-surface2 text-gray-400 border-app-border'
+                  }`}>
+                  👫 Les deux
+                </button>
               </div>
-
-              {splitMode === 'custom' && (
-                <div className="space-y-2">
-                  {users.map(u => {
-                    const split = form.splits.find(s => s.user_id === u.id)
-                    return (
-                      <div key={u.id} className="flex items-center gap-2">
-                        <button type="button" onClick={() => toggleSplitUser(u.id)}
-                          className={`flex items-center gap-2 flex-1 px-3 py-2 rounded-xl border text-sm ${
-                            split ? 'border-app-accent bg-app-accent/10' : 'border-app-border bg-app-surface2 text-gray-400'
-                          }`}>
-                          <span>{u.emoji}</span>
-                          <span style={{ color: u.color }}>{u.name}</span>
-                        </button>
-                        {split && (
-                          <input type="number" step="0.01" min="0"
-                            value={split.amount}
-                            onChange={e => updateSplit(u.id, e.target.value)}
-                            className="input-field w-24 text-right"
-                          />
-                        )}
-                      </div>
-                    )
-                  })}
-                  {form.splits.length > 0 && (
-                    <div className="text-xs text-right pr-1">
-                      <span className={
-                        Math.abs(form.splits.reduce((s,x) => s + x.amount, 0) - parseFloat(form.amount || 0)) < 0.01
-                          ? 'text-green-400' : 'text-red-400'
-                      }>
-                        Total réparti: {form.splits.reduce((s,x) => s + x.amount, 0).toFixed(2)} €
-                        {' / '}
-                        {parseFloat(form.amount || 0).toFixed(2)} €
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {splitMode === 'equal' && form.splits.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {form.splits.map(s => {
-                    const u = users.find(u => u.id === s.user_id)
-                    return u ? (
-                      <div key={s.user_id} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-app-accent/40 bg-app-accent/10 text-sm">
-                        <span>{u.emoji}</span>
-                        <span style={{ color: u.color }}>{u.name}</span>
-                        <span className="text-gray-400 ml-1">{s.amount.toFixed(2)}€</span>
-                      </div>
-                    ) : null
-                  })}
-                </div>
+              {splitFor !== 'none' && form.amount && !isNaN(amtNum) && (
+                <p className="text-xs text-gray-400 mt-2">
+                  {splitFor === 'all'
+                    ? users.map(u => `${u.emoji} ${u.name}: ${(amtNum / users.length).toFixed(2)} CHF`).join(' · ')
+                    : (() => {
+                        const u = users.find(x => x.id === splitFor)
+                        return u ? `${u.emoji} ${u.name}: ${amtNum.toFixed(2)} CHF` : ''
+                      })()
+                  }
+                </p>
               )}
             </div>
           )}

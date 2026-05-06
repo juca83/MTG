@@ -55,6 +55,7 @@ function transformExpense(e) {
     category_id:    e.category_id,
     notes:          e.notes,
     is_income:      e.is_income,
+    is_transfer:    e.is_transfer ?? false,
     created_at:     e.created_at,
     paid_by_name:   e.paid_by_user?.name  || null,
     paid_by_color:  e.paid_by_user?.color || null,
@@ -132,7 +133,13 @@ export async function getCategories() {
     .from('categories').select('*')
     .order('is_income', { ascending: true }).order('sort_order').order('name')
   if (error) throw error
-  return data || []
+  const seen = new Set()
+  return (data || []).filter(c => {
+    const key = `${c.name}|${c.is_income}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 }
 
 export async function createCategory(categoryData) {
@@ -223,14 +230,14 @@ export async function settleSplit(expenseId, splitId) {
 // ── Analytics (calculé en JavaScript depuis les données brutes) ───────────────
 export async function getSummary({ year, month } = {}) {
   const expenses = await fetchRawExpenses({ year, month })
-  const total_expenses = expenses.filter(e => !e.is_income).reduce((s, e) => s + e.amount, 0)
-  const total_income   = expenses.filter(e =>  e.is_income).reduce((s, e) => s + e.amount, 0)
+  const total_expenses = expenses.filter(e => !e.is_income && !e.is_transfer).reduce((s, e) => s + e.amount, 0)
+  const total_income   = expenses.filter(e =>  e.is_income && !e.is_transfer).reduce((s, e) => s + e.amount, 0)
   return { total_expenses, total_income, balance: total_income - total_expenses }
 }
 
 export async function getByCategory({ year, month, is_income = false } = {}) {
   const [expenses, categories] = await Promise.all([fetchRawExpenses({ year, month }), getCategories()])
-  const filtered = expenses.filter(e => Boolean(e.is_income) === Boolean(is_income))
+  const filtered = expenses.filter(e => Boolean(e.is_income) === Boolean(is_income) && !e.is_transfer)
   return categories
     .filter(c => Boolean(c.is_income) === Boolean(is_income))
     .map(cat => ({
@@ -246,15 +253,15 @@ export async function getMonthly({ year }) {
   return Array.from({ length: 12 }, (_, i) => {
     const m = i + 1
     const monthExp = expenses.filter(e => new Date(e.date + 'T00:00:00').getMonth() + 1 === m)
-    const exp = monthExp.filter(e => !e.is_income).reduce((s, e) => s + e.amount, 0)
-    const inc = monthExp.filter(e =>  e.is_income).reduce((s, e) => s + e.amount, 0)
+    const exp = monthExp.filter(e => !e.is_income && !e.is_transfer).reduce((s, e) => s + e.amount, 0)
+    const inc = monthExp.filter(e =>  e.is_income && !e.is_transfer).reduce((s, e) => s + e.amount, 0)
     return { month: m, expenses: exp, income: inc, balance: inc - exp }
   })
 }
 
 export async function getByUser({ year, month } = {}) {
   const [expenses, users] = await Promise.all([fetchRawExpenses({ year, month }), getUsers()])
-  const filtered = expenses.filter(e => !e.is_income)
+  const filtered = expenses.filter(e => !e.is_income && !e.is_transfer)
   return users.map(u => ({
     id: u.id, name: u.name, color: u.color, emoji: u.emoji,
     paid:  filtered.filter(e => e.paid_by === u.id).reduce((s, e) => s + e.amount, 0),
@@ -274,6 +281,7 @@ export async function getBalances() {
     if (s.expense?.is_income) continue
     const creditor = s.expense?.paid_by
     const debtor   = s.user_id
+    if (s.expense?.is_transfer) continue
     if (debtor === creditor || !creditor) continue
     const key = `${debtor}-${creditor}`
     if (!debtMap[key]) debtMap[key] = { debtor, creditor, amount: 0 }
@@ -282,7 +290,7 @@ export async function getBalances() {
   return {
     users: users.map(u => ({
       ...u,
-      total_paid: expenses.filter(e => e.paid_by === u.id && !e.is_income).reduce((s, e) => s + e.amount, 0),
+      total_paid: expenses.filter(e => e.paid_by === u.id && !e.is_income && !e.is_transfer).reduce((s, e) => s + e.amount, 0),
     })),
     debts: Object.values(debtMap).filter(d => d.amount > 0.01),
   }
@@ -291,7 +299,7 @@ export async function getBalances() {
 export async function getWeekly({ year, month } = {}) {
   const expenses = await fetchRawExpenses({ year, month })
   const weekMap = {}
-  for (const e of expenses.filter(ex => !ex.is_income)) {
+  for (const e of expenses.filter(ex => !ex.is_income && !ex.is_transfer)) {
     const w = String(getISOWeek(new Date(e.date + 'T00:00:00'))).padStart(2, '0')
     if (!weekMap[w]) weekMap[w] = { week: w, total: 0, count: 0 }
     weekMap[w].total += e.amount
@@ -314,8 +322,8 @@ export async function getBudgets({ month, year }) {
     category_color: b.category?.color || null,
     category: undefined,
     spent: (b.category_id
-      ? expenses.filter(e => !e.is_income && e.category_id === b.category_id)
-      : expenses.filter(e => !e.is_income)
+      ? expenses.filter(e => !e.is_income && !e.is_transfer && e.category_id === b.category_id)
+      : expenses.filter(e => !e.is_income && !e.is_transfer)
     ).reduce((s, e) => s + e.amount, 0),
   }))
 }

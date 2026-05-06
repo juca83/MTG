@@ -125,7 +125,7 @@ function AccountFormModal({ account, users, onSave, onClose }) {
 
           {/* Initial balance */}
           <div>
-            <label className="text-xs text-gray-400 mb-1 block">Solde initial (€)</label>
+            <label className="text-xs text-gray-400 mb-1 block">Solde initial (CHF)</label>
             <input type="number" step="0.01" placeholder="0.00"
               value={form.initial_balance}
               onChange={e => set('initial_balance', e.target.value)}
@@ -237,7 +237,7 @@ function AccountCard({ account, users, onEdit, onDelete }) {
           {account.type === 'common' ? '👫 Commun' : owner ? `${owner.emoji} ${owner.name}` : '👤 Personnel'}
         </p>
         {account.initial_balance !== 0 && (
-          <p className="text-xs text-gray-600 mt-0.5">Solde initial: {account.initial_balance.toFixed(2)}€</p>
+          <p className="text-xs text-gray-600 mt-0.5">Solde initial: {account.initial_balance.toFixed(2)} CHF</p>
         )}
       </div>
       <div className="flex gap-1">

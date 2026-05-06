@@ -6,7 +6,7 @@ import toast from 'react-hot-toast'
 import { getExpenses, deleteExpense, getCategories, getUsers } from '../api'
 import ExpenseForm from '../components/ExpenseForm'
 
-function fmt(n) { return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(n ?? 0) }
+function fmt(n) { return new Intl.NumberFormat('fr-CH', { style: 'currency', currency: 'CHF' }).format(n ?? 0) }
 
 export default function Expenses() {
   const [expenses, setExpenses]   = useState([])

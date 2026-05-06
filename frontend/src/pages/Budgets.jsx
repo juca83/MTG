@@ -3,9 +3,9 @@ import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, X, Check } from 'lucid
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import toast from 'react-hot-toast'
-import { getBudgets, createBudget, updateBudget, deleteBudget, getCategories } from '../api'
+import { getBudgets, createBudget, updateBudget, deleteBudget, getCategories, getUsers } from '../api'
 
-function fmt(n) { return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n ?? 0) }
+function fmt(n) { return new Intl.NumberFormat('fr-CH', { style: 'currency', currency: 'CHF', maximumFractionDigits: 0 }).format(n ?? 0) }
 
 function BudgetCard({ budget, onEdit, onDelete }) {
   const pct = budget.amount > 0 ? Math.min(100, (budget.spent / budget.amount) * 100) : 0
@@ -55,10 +55,11 @@ function BudgetCard({ budget, onEdit, onDelete }) {
   )
 }
 
-function BudgetFormModal({ budget, month, year, categories, onSave, onClose }) {
+function BudgetFormModal({ budget, month, year, categories, users, onSave, onClose }) {
   const [form, setForm] = useState({
     category_id: budget?.category_id ?? '',
     amount:      budget?.amount ?? '',
+    user_id:     budget?.user_id ?? null,
     month, year,
   })
   const [loading, setLoading] = useState(false)
@@ -69,10 +70,12 @@ function BudgetFormModal({ budget, month, year, categories, onSave, onClose }) {
     setLoading(true)
     try {
       const payload = {
-        ...form,
         amount:      parseFloat(form.amount),
         category_id: form.category_id ? parseInt(form.category_id) : null,
+        month:       form.month,
+        year:        form.year,
       }
+      if (form.user_id !== null) payload.user_id = parseInt(form.user_id)
       if (budget) {
         await updateBudget(budget.id, { amount: payload.amount })
       } else {
@@ -111,11 +114,39 @@ function BudgetFormModal({ budget, month, year, categories, onSave, onClose }) {
             </div>
           )}
           <div>
-            <label className="text-xs text-gray-400 mb-1 block">Montant budget (€)</label>
-            <input type="number" step="1" min="0" placeholder="Ex: 500"
-              value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
+            <label className="text-xs text-gray-400 mb-1 block">Montant budget (CHF)</label>
+            <input type="text" inputMode="decimal" placeholder="Ex: 500"
+              value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value.replace(',', '.') }))}
               className="input-field text-xl font-bold" autoFocus />
           </div>
+          {!budget && users.length > 0 && (
+            <div>
+              <label className="text-xs text-gray-400 mb-2 block">Pour qui</label>
+              <div className="flex gap-2 flex-wrap">
+                <button type="button"
+                  onClick={() => setForm(f => ({ ...f, user_id: null }))}
+                  className={`px-3 py-2 rounded-xl text-sm font-medium border transition-all ${
+                    form.user_id === null
+                      ? 'border-app-accent bg-app-accent/20 text-indigo-700'
+                      : 'border-app-border bg-app-surface2 text-gray-400'
+                  }`}>
+                  👫 Tous
+                </button>
+                {users.map(u => (
+                  <button key={u.id} type="button"
+                    onClick={() => setForm(f => ({ ...f, user_id: u.id }))}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border transition-all ${
+                      form.user_id === u.id
+                        ? 'border-app-accent bg-app-accent/20 text-indigo-700'
+                        : 'border-app-border bg-app-surface2 text-gray-400'
+                    }`}>
+                    <span>{u.emoji}</span>
+                    <span style={{ color: u.color }}>{u.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <button type="submit" disabled={loading} className="btn-primary w-full py-3">
             {loading ? 'Enregistrement...' : budget ? '✓ Modifier' : '+ Créer'}
           </button>
@@ -131,6 +162,7 @@ export default function Budgets() {
   const [year, setYear]   = useState(now.getFullYear())
   const [budgets, setBudgets]     = useState([])
   const [categories, setCategories] = useState([])
+  const [users, setUsers]         = useState([])
   const [showForm, setShowForm]   = useState(false)
   const [editBudget, setEditBudget] = useState(null)
 
@@ -139,7 +171,9 @@ export default function Budgets() {
   }
 
   useEffect(() => {
-    getCategories().then(setCategories)
+    Promise.all([getCategories(), getUsers()]).then(([c, u]) => {
+      setCategories(c); setUsers(u)
+    })
   }, [])
 
   useEffect(() => { load() }, [month, year])
@@ -232,6 +266,7 @@ export default function Budgets() {
           budget={editBudget}
           month={month} year={year}
           categories={categories}
+          users={users}
           onSave={() => { setShowForm(false); setEditBudget(null); load() }}
           onClose={() => { setShowForm(false); setEditBudget(null) }}
         />

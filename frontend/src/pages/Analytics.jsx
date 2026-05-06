@@ -10,7 +10,7 @@ import { fr } from 'date-fns/locale'
 import { getByCategory, getMonthly, getByUser, getSummary } from '../api'
 
 const MONTHS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
-function fmt(n) { return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n ?? 0) }
+function fmt(n) { return new Intl.NumberFormat('fr-CH', { style: 'currency', currency: 'CHF', maximumFractionDigits: 0 }).format(n ?? 0) }
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null

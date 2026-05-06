@@ -5,7 +5,7 @@ import { fr } from 'date-fns/locale'
 import { getSummary, getExpenses, getBalances, getByCategory } from '../api'
 import ExpenseForm from '../components/ExpenseForm'
 
-function fmt(n) { return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(n ?? 0) }
+function fmt(n) { return new Intl.NumberFormat('fr-CH', { style: 'currency', currency: 'CHF' }).format(n ?? 0) }
 
 function MonthPicker({ date, onChange }) {
   function prev() { onChange(new Date(date.getFullYear(), date.getMonth() - 1, 1)) }

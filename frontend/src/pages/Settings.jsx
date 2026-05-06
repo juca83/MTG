@@ -176,27 +176,9 @@ export default function Settings() {
   const [editUser, setEditUser]           = useState(null)
   const [tab, setTab]                     = useState('users')
 
-  const [dbStatus, setDbStatus] = useState(null)
-
-  async function testConnection() {
-    try {
-      const res = await fetch('https://ubvcqilwpexcepqblgwb.supabase.co/rest/v1/users?select=id', {
-        headers: {
-          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVidmNxaWx3cGV4Y2VwcWJsZ3diIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5NzY4ODIsImV4cCI6MjA5MzU1Mjg4Mn0.0ZFRf8TO3aFwbfJsoMFDY9nbBHjo6ML6HDGv7l8fBvQ',
-          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVidmNxaWx3cGV4Y2VwcWJsZ3diIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5NzY4ODIsImV4cCI6MjA5MzU1Mjg4Mn0.0ZFRf8TO3aFwbfJsoMFDY9nbBHjo6ML6HDGv7l8fBvQ',
-        }
-      })
-      const data = await res.json()
-      setDbStatus(`✅ HTTP ${res.status} — ${JSON.stringify(data)}`)
-    } catch(e) {
-      setDbStatus(`❌ ${e.name}: ${e.message}`)
-    }
-  }
-
   function load() {
-    testConnection()
-    getUsers().then(setUsers).catch(e => console.error('getUsers:', e))
-    getCategories().then(setCategories).catch(e => console.error('getCats:', e))
+    getUsers().then(setUsers)
+    getCategories().then(setCategories)
   }
   useEffect(() => { load() }, [])
 
@@ -226,13 +208,6 @@ export default function Settings() {
       <div className="pt-2 mb-5">
         <h1 className="text-2xl font-bold">Réglages</h1>
       </div>
-
-      {dbStatus && (
-        <div className="mb-4 p-3 rounded-xl text-xs break-all border border-app-border bg-app-surface2">
-          <p className="font-bold mb-1">Diagnostic connexion :</p>
-          <p>{dbStatus}</p>
-        </div>
-      )}
 
       {/* Tabs */}
       <div className="flex gap-1 p-1 bg-app-surface rounded-xl mb-5 border border-app-border">
