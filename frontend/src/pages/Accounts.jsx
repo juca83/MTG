@@ -164,8 +164,13 @@ export default function Accounts() {
   const [showForm, setShowForm] = useState(false)
   const [editAccount, setEditAccount] = useState(null)
 
+  // Users loaded independently so the form always works even if balance computation fails
+  useEffect(() => { getUsers().then(setUsers) }, [])
+
   function load() {
-    Promise.all([getAccountsWithBalance(), getUsers()]).then(([a, u]) => { setAccounts(a); setUsers(u) })
+    getAccountsWithBalance()
+      .then(setAccounts)
+      .catch(() => getAccounts().then(setAccounts))
   }
   useEffect(() => { load() }, [])
 
