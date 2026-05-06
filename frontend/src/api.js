@@ -1,20 +1,11 @@
 import { supabase } from './supabase'
 import { getISOWeek } from 'date-fns'
 
-// ── Helper: requête dépenses avec toutes les relations ────────────────────────
+// ── Helper: requête dépenses sans jointures PostgREST (plus robuste) ──────────
 async function fetchRawExpenses(filters = {}) {
   let query = supabase
     .from('expenses')
-    .select(`
-      *,
-      paid_by_user:users!paid_by(id, name, color, emoji),
-      category:categories(id, name, icon, color),
-      account:accounts(id, name),
-      splits:expense_splits(
-        id, amount, is_settled, user_id,
-        split_user:users(id, name, color, emoji)
-      )
-    `)
+    .select('*, splits:expense_splits(id, amount, is_settled, user_id)')
 
   if (filters.year && filters.month) {
     const y  = filters.year
@@ -40,7 +31,29 @@ async function fetchRawExpenses(filters = {}) {
 
   const { data, error } = await query
   if (error) throw error
-  return data || []
+  const expenses = data || []
+  if (expenses.length === 0) return []
+
+  // Enrichissement côté JS — évite les dépendances aux FK PostgREST
+  const [{ data: users }, { data: categories }, { data: accounts }] = await Promise.all([
+    supabase.from('users').select('id, name, color, emoji'),
+    supabase.from('categories').select('id, name, icon, color'),
+    supabase.from('accounts').select('id, name'),
+  ])
+  const uMap = Object.fromEntries((users      || []).map(x => [x.id, x]))
+  const cMap = Object.fromEntries((categories || []).map(x => [x.id, x]))
+  const aMap = Object.fromEntries((accounts   || []).map(x => [x.id, x]))
+
+  return expenses.map(e => ({
+    ...e,
+    paid_by_user: uMap[e.paid_by]        || null,
+    category:     cMap[e.category_id]    || null,
+    account:      aMap[e.account_id]     || null,
+    splits: (e.splits || []).map(s => ({
+      ...s,
+      split_user: uMap[s.user_id] || null,
+    })),
+  }))
 }
 
 // Transforme la réponse Supabase (imbriquée) en format plat attendu par les pages
@@ -104,23 +117,22 @@ export async function deleteUser(id) {
 
 // ── Accounts ──────────────────────────────────────────────────────────────────
 export async function getAccounts() {
-  const { data, error } = await supabase.from('accounts').select('*, owner:users(name)').order('id')
+  const { data, error } = await supabase.from('accounts').select('*').order('id')
   if (error) throw error
-  return (data || []).map(a => ({ ...a, owner_name: a.owner?.name || null, owner: undefined }))
+  return (data || []).map(a => ({ ...a, owner_name: null }))
 }
 
 export async function createAccount(accountData) {
   const { data, error } = await supabase.from('accounts').insert(accountData).select().single()
   if (error) throw error
-  const { data: full } = await supabase.from('accounts').select('*, owner:users(name)').eq('id', data.id).single()
-  return { ...full, owner_name: full.owner?.name || null, owner: undefined }
+  return { ...data, owner_name: null }
 }
 
 export async function updateAccount(id, accountData) {
   const { error } = await supabase.from('accounts').update(accountData).eq('id', id)
   if (error) throw error
-  const { data } = await supabase.from('accounts').select('*, owner:users(name)').eq('id', id).single()
-  return { ...data, owner_name: data.owner?.name || null, owner: undefined }
+  const { data } = await supabase.from('accounts').select('*').eq('id', id).single()
+  return { ...data, owner_name: null }
 }
 
 export async function deleteAccount(id) {
@@ -129,7 +141,7 @@ export async function deleteAccount(id) {
 }
 
 export async function getAccountsWithBalance() {
-  const { data: accts, error } = await supabase.from('accounts').select('*, owner:users(name)').order('id')
+  const { data: accts, error } = await supabase.from('accounts').select('*').order('id')
   if (error) throw error
   let expenses = []
   try { expenses = await fetchRawExpenses({}) } catch { /* balance uses initial_balance only */ }
@@ -149,8 +161,7 @@ export async function getAccountsWithBalance() {
     }, 0)
     return {
       ...a,
-      owner_name: a.owner?.name || null,
-      owner: undefined,
+      owner_name: null,
       computed_balance: (a.initial_balance || 0) + flow,
     }
   })
@@ -200,19 +211,24 @@ export async function getExpenses(filters = {}) {
 export async function getExpense(id) {
   const { data, error } = await supabase
     .from('expenses')
-    .select(`
-      *,
-      paid_by_user:users!paid_by(id, name, color, emoji),
-      category:categories(id, name, icon, color),
-      account:accounts(id, name),
-      splits:expense_splits(
-        id, amount, is_settled, user_id,
-        split_user:users(id, name, color, emoji)
-      )
-    `)
+    .select('*, splits:expense_splits(id, amount, is_settled, user_id)')
     .eq('id', id).single()
   if (error) throw error
-  return transformExpense(data)
+  const [{ data: users }, { data: categories }, { data: accounts }] = await Promise.all([
+    supabase.from('users').select('id, name, color, emoji'),
+    supabase.from('categories').select('id, name, icon, color'),
+    supabase.from('accounts').select('id, name'),
+  ])
+  const uMap = Object.fromEntries((users      || []).map(x => [x.id, x]))
+  const cMap = Object.fromEntries((categories || []).map(x => [x.id, x]))
+  const aMap = Object.fromEntries((accounts   || []).map(x => [x.id, x]))
+  return transformExpense({
+    ...data,
+    paid_by_user: uMap[data.paid_by]     || null,
+    category:     cMap[data.category_id] || null,
+    account:      aMap[data.account_id]  || null,
+    splits: (data.splits || []).map(s => ({ ...s, split_user: uMap[s.user_id] || null })),
+  })
 }
 
 export async function createExpense(expenseData) {
@@ -304,7 +320,7 @@ export async function getBalances() {
   const users = await getUsers()
   const { data: splits } = await supabase
     .from('expense_splits')
-    .select('*, expense:expenses!expense_id(paid_by, is_income)')
+    .select('*, expense:expenses(paid_by, is_income, is_transfer)')
     .eq('is_settled', false)
 
   const debtMap = {}
@@ -341,11 +357,13 @@ export async function getWeekly({ year, month } = {}) {
 
 // ── Budgets ───────────────────────────────────────────────────────────────────
 export async function getBudgets({ month, year }) {
-  const [{ data: budgets, error }, { data: accts }] = await Promise.all([
-    supabase.from('budgets').select('*, category:categories(name, icon, color)').eq('month', month).eq('year', year).order('id'),
+  const [{ data: budgets, error }, { data: cats }, { data: accts }] = await Promise.all([
+    supabase.from('budgets').select('*').eq('month', month).eq('year', year).order('id'),
+    supabase.from('categories').select('id, name, icon, color'),
     supabase.from('accounts').select('id, type, owner_id'),
   ])
   if (error) throw error
+  const catMap = Object.fromEntries((cats || []).map(c => [c.id, c]))
   let expenses = []
   try { expenses = await fetchRawExpenses({ year, month }) } catch { /* spent defaults to 0 */ }
   const accounts = accts || []
@@ -374,12 +392,12 @@ export async function getBudgets({ month, year }) {
       })
     }
 
+    const cat = catMap[b.category_id]
     return {
       ...b,
-      category_name:  b.category?.name  || null,
-      category_icon:  b.category?.icon  || null,
-      category_color: b.category?.color || null,
-      category: undefined,
+      category_name:  cat?.name  || null,
+      category_icon:  cat?.icon  || null,
+      category_color: cat?.color || null,
       spent: filtered.reduce((s, e) => s + e.amount, 0),
     }
   })
@@ -395,15 +413,16 @@ export async function createBudget(budgetData) {
     }
     throw error
   }
-  const { data: full } = await supabase.from('budgets').select('*, category:categories(name, icon, color)').eq('id', data.id).single()
-  return { ...full, category_name: full.category?.name, category_icon: full.category?.icon, category_color: full.category?.color, category: undefined, spent: 0 }
+  const { data: cat } = await supabase.from('categories').select('name, icon, color').eq('id', data.category_id).maybeSingle()
+  return { ...data, category_name: cat?.name || null, category_icon: cat?.icon || null, category_color: cat?.color || null, spent: 0 }
 }
 
 export async function updateBudget(id, { amount }) {
   const { error } = await supabase.from('budgets').update({ amount }).eq('id', id)
   if (error) throw error
-  const { data } = await supabase.from('budgets').select('*, category:categories(name, icon, color)').eq('id', id).single()
-  return { ...data, category_name: data.category?.name, category_icon: data.category?.icon, category_color: data.category?.color, category: undefined, spent: 0 }
+  const { data } = await supabase.from('budgets').select('*').eq('id', id).single()
+  const { data: cat } = await supabase.from('categories').select('name, icon, color').eq('id', data.category_id).maybeSingle()
+  return { ...data, category_name: cat?.name || null, category_icon: cat?.icon || null, category_color: cat?.color || null, spent: 0 }
 }
 
 export async function deleteBudget(id) {
