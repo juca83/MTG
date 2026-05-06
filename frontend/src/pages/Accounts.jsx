@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react'
 import { Plus, Pencil, Trash2, X } from 'lucide-react'
+import { format } from 'date-fns'
 import toast from 'react-hot-toast'
-import { getAccounts, createAccount, updateAccount, deleteAccount, getUsers } from '../api'
+import { getAccountsWithBalance, createAccount, updateAccount, deleteAccount, getUsers } from '../api'
 
 const ICONS  = ['🏦','💳','💰','🏧','💵','🏠','📊','🐷','💼','📈']
 const COLORS = ['#10b981','#6366f1','#3b82f6','#f97316','#ec4899','#a855f7','#ef4444','#eab308','#14b8a6','#84cc16']
+
+function fmt(n) { return new Intl.NumberFormat('fr-CH', { style: 'currency', currency: 'CHF' }).format(n ?? 0) }
 
 function AccountFormModal({ account, users, onSave, onClose }) {
   const [form, setForm] = useState({
@@ -14,6 +17,7 @@ function AccountFormModal({ account, users, onSave, onClose }) {
     color:           account?.color           ?? '#10b981',
     icon:            account?.icon            ?? '🏦',
     initial_balance: account?.initial_balance ?? 0,
+    balance_date:    account?.balance_date    ?? '',
   })
   const [loading, setLoading] = useState(false)
 
@@ -27,7 +31,8 @@ function AccountFormModal({ account, users, onSave, onClose }) {
       const payload = {
         ...form,
         owner_id:        form.owner_id ? parseInt(form.owner_id) : null,
-        initial_balance: parseFloat(form.initial_balance) || 0,
+        initial_balance: parseFloat(String(form.initial_balance).replace(',', '.')) || 0,
+        balance_date:    form.balance_date || null,
       }
       if (account) await updateAccount(account.id, payload)
       else          await createAccount(payload)
@@ -38,7 +43,7 @@ function AccountFormModal({ account, users, onSave, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-lg bg-app-surface rounded-t-3xl border-t border-app-border max-h-[85vh] overflow-y-auto">
+      <div className="w-full max-w-lg bg-app-surface rounded-t-3xl border-t border-app-border max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-5 pt-5 pb-3 sticky top-0 bg-app-surface">
           <h2 className="text-lg font-bold">{account ? 'Modifier le compte' : 'Nouveau compte'}</h2>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-app-surface2"><X size={20} /></button>
@@ -123,13 +128,25 @@ function AccountFormModal({ account, users, onSave, onClose }) {
             </div>
           </div>
 
-          {/* Initial balance */}
-          <div>
-            <label className="text-xs text-gray-400 mb-1 block">Solde initial (CHF)</label>
-            <input type="number" step="0.01" placeholder="0.00"
-              value={form.initial_balance}
-              onChange={e => set('initial_balance', e.target.value)}
-              className="input-field" />
+          {/* Reference balance section */}
+          <div className="p-3 rounded-xl bg-app-surface2 border border-app-border space-y-3">
+            <p className="text-xs font-semibold text-gray-600">📍 Solde de référence</p>
+            <div>
+              <label className="text-xs text-gray-400 mb-1 block">Montant connu (CHF)</label>
+              <input type="text" inputMode="decimal" placeholder="0.00"
+                value={form.initial_balance}
+                onChange={e => set('initial_balance', e.target.value.replace(',', '.'))}
+                className="input-field" />
+            </div>
+            <div>
+              <label className="text-xs text-gray-400 mb-1 block">Date de ce solde</label>
+              <input type="date" value={form.balance_date}
+                onChange={e => set('balance_date', e.target.value)}
+                className="input-field" />
+            </div>
+            <p className="text-xs text-gray-400">
+              Les dépenses et revenus enregistrés après cette date seront ajoutés/soustraits automatiquement.
+            </p>
           </div>
 
           <button type="submit" disabled={loading} className="btn-primary w-full py-3">
@@ -148,7 +165,7 @@ export default function Accounts() {
   const [editAccount, setEditAccount] = useState(null)
 
   function load() {
-    Promise.all([getAccounts(), getUsers()]).then(([a, u]) => { setAccounts(a); setUsers(u) })
+    Promise.all([getAccountsWithBalance(), getUsers()]).then(([a, u]) => { setAccounts(a); setUsers(u) })
   }
   useEffect(() => { load() }, [])
 
@@ -236,8 +253,17 @@ function AccountCard({ account, users, onEdit, onDelete }) {
         <p className="text-sm text-gray-500">
           {account.type === 'common' ? '👫 Commun' : owner ? `${owner.emoji} ${owner.name}` : '👤 Personnel'}
         </p>
-        {account.initial_balance !== 0 && (
-          <p className="text-xs text-gray-600 mt-0.5">Solde initial: {account.initial_balance.toFixed(2)} CHF</p>
+        {account.computed_balance !== undefined && (
+          <div className="flex items-baseline gap-2 mt-0.5">
+            <span className="text-sm font-bold" style={{ color: account.color }}>
+              {fmt(account.computed_balance)}
+            </span>
+            {account.balance_date && (
+              <span className="text-xs text-gray-400">
+                depuis {format(new Date(account.balance_date + 'T00:00:00'), 'dd/MM/yy')}
+              </span>
+            )}
+          </div>
         )}
       </div>
       <div className="flex gap-1">

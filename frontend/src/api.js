@@ -127,6 +127,29 @@ export async function deleteAccount(id) {
   if (error) throw error
 }
 
+export async function getAccountsWithBalance() {
+  const [{ data: accts, error }, expenses] = await Promise.all([
+    supabase.from('accounts').select('*, owner:users(name)').order('id'),
+    fetchRawExpenses({})
+  ])
+  if (error) throw error
+  return (accts || []).map(a => {
+    const linked = expenses.filter(e => e.account_id === a.id)
+    const relevant = a.balance_date
+      ? linked.filter(e => e.date > a.balance_date)
+      : linked
+    const flow = relevant.reduce((s, e) =>
+      e.is_income ? s + e.amount : s - e.amount
+    , 0)
+    return {
+      ...a,
+      owner_name: a.owner?.name || null,
+      owner: undefined,
+      computed_balance: (a.initial_balance || 0) + flow,
+    }
+  })
+}
+
 // ── Categories ────────────────────────────────────────────────────────────────
 export async function getCategories() {
   const { data, error } = await supabase

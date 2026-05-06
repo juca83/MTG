@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Plus, TrendingDown, TrendingUp, ArrowRightLeft, ChevronLeft, ChevronRight } from 'lucide-react'
-import { format, startOfMonth, endOfMonth } from 'date-fns'
+import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { getSummary, getExpenses, getBalances, getByCategory } from '../api'
 import ExpenseForm from '../components/ExpenseForm'
@@ -37,7 +37,7 @@ export default function Dashboard() {
     const p = { year, month }
     Promise.all([
       getSummary(p),
-      getExpenses({ ...p, limit: 5 }),
+      getExpenses({ limit: 5 }),
       getBalances(),
       getByCategory(p),
     ]).then(([s, e, b, c]) => {
@@ -104,31 +104,62 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Who owes who */}
-      {debts.length > 0 && (
-        <div className="surface-card p-4 mb-5">
-          <h2 className="font-semibold mb-3 flex items-center gap-2">
-            <ArrowRightLeft size={16} className="text-app-accent2" />
-            Équilibre
-          </h2>
-          {debts.map((debt, i) => {
-            const debtor   = users.find(u => u.id === debt.debtor)
-            const creditor = users.find(u => u.id === debt.creditor)
-            if (!debtor || !creditor) return null
-            return (
-              <div key={i} className="flex items-center gap-2 py-2 border-b border-app-border last:border-0">
-                <span className="text-lg">{debtor.emoji}</span>
-                <span className="text-sm" style={{ color: debtor.color }}>{debtor.name}</span>
-                <span className="text-gray-500 text-xs mx-1">doit</span>
-                <span className="font-semibold text-app-accent2">{fmt(debt.amount)}</span>
-                <span className="text-gray-500 text-xs mx-1">à</span>
-                <span className="text-lg">{creditor.emoji}</span>
-                <span className="text-sm" style={{ color: creditor.color }}>{creditor.name}</span>
-              </div>
-            )
-          })}
-        </div>
-      )}
+      {/* Équilibre + derniers échanges */}
+      <div className="surface-card p-4 mb-5">
+        <h2 className="font-semibold mb-3 flex items-center gap-2">
+          <ArrowRightLeft size={16} className="text-app-accent2" />
+          Équilibre
+        </h2>
+        {debts.length === 0 ? (
+          <p className="text-sm text-green-500 font-medium mb-3">✓ Tout est à jour</p>
+        ) : (
+          <div className="mb-3">
+            {debts.map((debt, i) => {
+              const debtor   = users.find(u => u.id === debt.debtor)
+              const creditor = users.find(u => u.id === debt.creditor)
+              if (!debtor || !creditor) return null
+              return (
+                <div key={i} className="flex items-center gap-2 py-2 border-b border-app-border last:border-0">
+                  <span className="text-lg">{debtor.emoji}</span>
+                  <span className="text-sm font-medium" style={{ color: debtor.color }}>{debtor.name}</span>
+                  <span className="text-gray-500 text-xs">doit</span>
+                  <span className="font-bold text-app-accent2">{fmt(debt.amount)}</span>
+                  <span className="text-gray-500 text-xs">à</span>
+                  <span className="text-lg">{creditor.emoji}</span>
+                  <span className="text-sm font-medium" style={{ color: creditor.color }}>{creditor.name}</span>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {expenses.length > 0 && (
+          <>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Derniers échanges</p>
+            <div className="space-y-2.5">
+              {expenses.map(e => (
+                <div key={e.id} className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base flex-shrink-0"
+                    style={{ background: (e.category_color || '#6366f1') + '25' }}>
+                    {e.is_transfer ? '🔄' : (e.category_icon || '📦')}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-xs truncate">{e.description}</p>
+                    <p className="text-xs text-gray-400">
+                      <span style={{ color: e.paid_by_color }}>{e.paid_by_emoji} {e.paid_by_name}</span>
+                      {' · '}
+                      <span>{format(new Date(e.date + 'T00:00:00'), 'd MMM', { locale: fr })}</span>
+                    </p>
+                  </div>
+                  <span className={`font-semibold text-xs flex-shrink-0 ${e.is_income ? 'text-green-600' : e.is_transfer ? 'text-blue-600' : 'text-red-500'}`}>
+                    {e.is_income ? '+' : e.is_transfer ? '↔' : '-'}{fmt(e.amount)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
 
       {/* Top categories */}
       {top3.length > 0 && (
@@ -155,35 +186,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Recent expenses */}
-      <div className="surface-card p-4">
-        <h2 className="font-semibold mb-3">🕐 Récentes</h2>
-        {expenses.length === 0 ? (
-          <p className="text-gray-500 text-sm text-center py-4">Aucune dépense ce mois-ci</p>
-        ) : (
-          <div className="space-y-3">
-            {expenses.map(e => (
-              <div key={e.id} className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
-                  style={{ background: (e.category_color || '#6366f1') + '25' }}>
-                  {e.category_icon || '📦'}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">{e.description}</p>
-                  <p className="text-xs text-gray-500 flex items-center gap-1">
-                    <span style={{ color: e.paid_by_color }}>{e.paid_by_emoji} {e.paid_by_name}</span>
-                    <span>·</span>
-                    <span>{format(new Date(e.date + 'T00:00:00'), 'd MMM', { locale: fr })}</span>
-                  </p>
-                </div>
-                <span className={`font-semibold text-sm ${e.is_income ? 'text-green-600' : 'text-red-500'}`}>
-                  {e.is_income ? '+' : '-'}{fmt(e.amount)}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
 
       {showForm && (
         <ExpenseForm onSave={() => { setShowForm(false); load() }} onClose={() => setShowForm(false)} />
