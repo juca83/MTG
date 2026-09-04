@@ -17,11 +17,16 @@ USAGE :  python3 enrichir_chimere.py      (Windows : python enrichir_chimere.py)
 - enrichissement_rapport.csv liste les correspondances trouvées (pour repérer
   un mauvais appariement de nom).
 
-Au démarrage, le script teste plusieurs façons de joindre BoardGameGeek et
-retient la première qui répond (le site refuse les requêtes qui ne se
-présentent pas comme un navigateur : erreur « HTTP 401 »). En cours de route,
-aucune erreur réseau n'interrompt le travail : le jeu concerné est simplement
-noté comme non trouvé et sera retenté à la prochaine exécution.
+IMPORTANT — depuis fin 2025, BoardGameGeek exige une inscription et un jeton
+d'accès personnel : sans jeton, l'API répond « HTTP 401 Unauthorized ».
+Inscription (gratuite pour un usage privé) : https://boardgamegeek.com/using_the_xml_api
+Place ensuite ton jeton, seul sur la première ligne, dans un fichier
+bgg_token.txt placé à côté de ce script.
+
+Au démarrage, le script teste plusieurs accès (avec puis sans jeton) et retient
+le premier qui répond. En cours de route, aucune erreur réseau n'interrompt le
+travail : le jeu concerné est simplement noté comme non trouvé et sera retenté
+à la prochaine exécution.
 """
 
 import sys, re, json, time, csv, os, urllib.parse, urllib.request, urllib.error
@@ -35,20 +40,56 @@ REPORT    = "enrichissement_rapport.csv"
 PAUSE     = 0.7          # pause entre appels (courtoisie envers BGG)
 SAVE_EVERY = 20          # réécrit l'HTML tous les N jeux traités
 
-# --- Accès à l'API : plusieurs combinaisons essayées au démarrage -----------
+# --- Accès à l'API ----------------------------------------------------------
+# Depuis fin 2025, BoardGameGeek exige une inscription et un jeton d'accès :
+# sans jeton, l'API répond « HTTP 401 Unauthorized » à tout le monde.
+# Voir https://boardgamegeek.com/using_the_xml_api
+#
+# Colle ton jeton dans un fichier bgg_token.txt placé à côté de ce script
+# (ou définis la variable d'environnement BGG_TOKEN).
+TOKEN_FILE = "bgg_token.txt"
+
 UA_NAVIGATEUR = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                  "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
 UA_SIMPLE     = "Chimere/1.0 (enrichissement de collection personnelle)"
 
-STRATEGIES = [
-    ("boardgamegeek.com, en navigateur",     "https://boardgamegeek.com/xmlapi2",     UA_NAVIGATEUR),
-    ("api.geekdo.com, en navigateur",        "https://api.geekdo.com/xmlapi2",        UA_NAVIGATEUR),
-    ("www.boardgamegeek.com, en navigateur", "https://www.boardgamegeek.com/xmlapi2", UA_NAVIGATEUR),
-    ("boardgamegeek.com, mode simple",       "https://boardgamegeek.com/xmlapi2",     UA_SIMPLE),
-    ("api.geekdo.com, mode simple",          "https://api.geekdo.com/xmlapi2",        UA_SIMPLE),
+HOTES = [
+    ("boardgamegeek.com",     "https://boardgamegeek.com/xmlapi2"),
+    ("api.geekdo.com",        "https://api.geekdo.com/xmlapi2"),
+    ("www.boardgamegeek.com", "https://www.boardgamegeek.com/xmlapi2"),
 ]
 
-ACTIF = {"api": None, "ua": None, "nom": None, "erreur": ""}
+ACTIF = {"api": None, "ua": None, "nom": None, "erreur": "",
+         "token": "", "auth": "", "401": False}
+
+def lire_token():
+    """Jeton BGG depuis bgg_token.txt ou la variable d'environnement BGG_TOKEN."""
+    brut = os.environ.get("BGG_TOKEN", "")
+    if not brut and os.path.exists(TOKEN_FILE):
+        try:
+            for ligne in open(TOKEN_FILE, encoding="utf-8-sig"):
+                ligne = ligne.strip()
+                if ligne and not ligne.startswith("#"):
+                    brut = ligne
+                    break
+        except Exception:
+            pass
+    brut = brut.strip().strip('"').strip("'")
+    if brut.lower().startswith("bearer "):
+        brut = brut[7:].strip()
+    return brut
+
+def strategies():
+    """Combinaisons d'accès à essayer, avec ou sans jeton."""
+    tok = ACTIF["token"]
+    out = []
+    if tok:
+        for nom, api in HOTES:
+            out.append((f"{nom}, avec jeton", api, UA_NAVIGATEUR, tok))
+    for nom, api in HOTES:
+        out.append((f"{nom}, sans jeton", api, UA_NAVIGATEUR, ""))
+    out.append((f"{HOTES[0][0]}, sans jeton, mode simple", HOTES[0][1], UA_SIMPLE, ""))
+    return out
 
 # Certaines protections posent un cookie à la première visite : on le conserve.
 _opener = urllib.request.build_opener(
@@ -128,15 +169,18 @@ def dire(msg=""):
         print(str(msg).encode(enc, "replace").decode(enc, "replace"))
     sys.stdout.flush()
 
-def http_get(url, ua, timeout=30):
+def http_get(url, ua, token="", timeout=30):
     """Retourne (code, contenu). Lève l'exception d'origine en cas d'échec."""
-    req = urllib.request.Request(url, headers={
+    entetes = {
         "User-Agent": ua,
         "Accept": "application/xml, text/xml, */*;q=0.8",
         "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
         "Referer": "https://boardgamegeek.com/",
         "Connection": "keep-alive",
-    })
+    }
+    if token:
+        entetes["Authorization"] = "Bearer " + token
+    req = urllib.request.Request(url, headers=entetes)
     with _opener.open(req, timeout=timeout) as r:
         return getattr(r, "status", 200), r.read()
 
@@ -152,7 +196,8 @@ def choisir_strategie(silencieux=False):
     """Teste les accès possibles et retient le premier qui répond vraiment."""
     if not silencieux:
         dire("Recherche d'un accès à BoardGameGeek…")
-    for nom, api, ua in STRATEGIES:
+    ACTIF["401"] = False
+    for nom, api, ua, tok in strategies():
         # visite d'accueil : récupère un éventuel cookie de protection
         racine = api.rsplit("/xmlapi2", 1)[0] + "/"
         try:
@@ -162,18 +207,20 @@ def choisir_strategie(silencieux=False):
         time.sleep(0.5)
         url = f"{api}/search?type=boardgame&query=Catan"
         try:
-            code, data = http_get(url, ua)
+            code, data = http_get(url, ua, tok)
             if code == 202:                       # file d'attente : on patiente
                 time.sleep(3)
-                code, data = http_get(url, ua)
+                code, data = http_get(url, ua, tok)
             if _xml_utilisable(data):
-                ACTIF.update({"api": api, "ua": ua, "nom": nom, "erreur": ""})
+                ACTIF.update({"api": api, "ua": ua, "nom": nom, "erreur": "", "auth": tok})
                 if not silencieux:
                     dire(f"  OK via {nom}\n")
                 return True
             detail = f"réponse inattendue (HTTP {code})"
         except urllib.error.HTTPError as e:
             detail = f"HTTP {e.code} {e.reason}"
+            if e.code in (401, 403):
+                ACTIF["401"] = True
         except urllib.error.URLError as e:
             detail = f"pas de connexion ({e.reason})"
         except Exception as e:
@@ -184,12 +231,35 @@ def choisir_strategie(silencieux=False):
         time.sleep(1)
     return False
 
+def expliquer_401():
+    """Message d'aide quand BGG refuse l'accès faute de jeton valable."""
+    if ACTIF["token"]:
+        dire("BoardGameGeek refuse le jeton fourni.")
+        dire("")
+        dire(f"Le jeton lu fait {len(ACTIF['token'])} caractères et commence par "
+             f"« {ACTIF['token'][:6]}… ».")
+        dire("Vérifie dans bgg_token.txt que tu as bien collé le jeton entier,")
+        dire("sur une seule ligne, sans espace ni guillemet autour. Un jeton")
+        dire("tout juste créé peut aussi mettre quelques minutes à être actif.")
+    else:
+        dire("BoardGameGeek n'accepte plus les accès anonymes à son catalogue.")
+        dire("")
+        dire("Depuis fin 2025, le site exige une inscription et un jeton")
+        dire("personnel. C'est gratuit pour un usage privé comme le tien.")
+        dire("")
+        dire("  1. Va sur https://boardgamegeek.com/using_the_xml_api")
+        dire("     (crée un compte BGG si tu n'en as pas) et suis la procédure")
+        dire("     d'inscription à l'API pour obtenir ton jeton.")
+        dire("  2. Crée dans CE dossier un fichier texte nommé  bgg_token.txt")
+        dire("  3. Colle le jeton dedans, seul, sur la première ligne. Enregistre.")
+        dire("  4. Relance ce script : il repartira tout seul.")
+
 def fetch(chemin):
     """Appelle l'API. Ne lève jamais : retourne None si ça n'a pas marché."""
     url = ACTIF["api"] + chemin
     for tentative in range(5):
         try:
-            code, data = http_get(url, ACTIF["ua"])
+            code, data = http_get(url, ACTIF["ua"], ACTIF["auth"])
             if code == 202:                       # requête mise en file par BGG
                 time.sleep(2.5); continue
             return data
@@ -309,18 +379,29 @@ def main():
     games = json.loads(m.group(1))
     cache = load_cache()
 
+    ACTIF["token"] = lire_token()
+    if ACTIF["token"]:
+        dire(f"Jeton BGG trouvé ({len(ACTIF['token'])} caractères).")
+    else:
+        if os.path.exists(TOKEN_FILE):
+            dire(f"Le fichier {TOKEN_FILE} ne contient pas encore de jeton.")
+        else:
+            dire(f"Pas de fichier {TOKEN_FILE} : essai en accès libre.")
+
     if not choisir_strategie():
         dire("")
-        dire("Impossible de joindre BoardGameGeek pour l'instant.")
-        dire(f"Dernier motif : {ACTIF['erreur']}")
-        dire("")
-        dire("Pistes, dans l'ordre :")
-        dire("  1. Ouvre https://boardgamegeek.com dans ton navigateur. Si le site")
-        dire("     ne s'affiche pas non plus, il est en panne : réessaie plus tard.")
-        dire("  2. Si tu es sur un réseau d'entreprise ou avec un VPN, il peut")
-        dire("     bloquer le site : essaie depuis une autre connexion.")
-        dire("  3. Sinon, attends une heure et relance : BGG limite parfois")
-        dire("     temporairement les accès automatiques.")
+        if ACTIF["401"]:
+            expliquer_401()
+        else:
+            dire("Impossible de joindre BoardGameGeek pour l'instant.")
+            dire(f"Dernier motif : {ACTIF['erreur']}")
+            dire("")
+            dire("Pistes, dans l'ordre :")
+            dire("  1. Ouvre https://boardgamegeek.com dans ton navigateur. Si le")
+            dire("     site ne s'affiche pas non plus, il est en panne : réessaie")
+            dire("     plus tard.")
+            dire("  2. Si tu es derrière un VPN ou un réseau filtré, il peut")
+            dire("     bloquer le site : essaie depuis une autre connexion.")
         dire("")
         dire("Aucun jeu n'a été perdu : rien n'a encore été modifié.")
         sys.exit(2)

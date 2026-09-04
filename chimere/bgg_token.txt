@@ -1,0 +1,4 @@
+# Colle ton jeton BoardGameGeek ci-dessous, seul sur sa ligne, puis enregistre.
+# Les lignes commençant par # sont ignorées : tu peux garder celles-ci.
+#
+# Pour obtenir un jeton : https://boardgamegeek.com/using_the_xml_api
