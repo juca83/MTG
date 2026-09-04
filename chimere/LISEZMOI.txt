@@ -1,0 +1,38 @@
+CHIMÈRE — tirage de soirée · dossier à donner à Claude Code
+===========================================================
+
+Ce dossier contient tout le nécessaire pour obtenir l'application finale
+avec les images de boîte.
+
+CONTENU
+-------
+- chimere_tirage.html      : l'application (déjà fonctionnelle, sans images)
+- enrichir_chimere.py      : le script qui ajoute images + données via BoardGameGeek
+- CLAUDE.md                : la consigne que Claude Code exécute
+- LISEZ-MOI.txt            : ce fichier
+
+LE PLUS SIMPLE (Claude Code)
+----------------------------
+1. Ouvre ce dossier dans Claude Code.
+2. Colle ce message :
+
+   « Lis CLAUDE.md et exécute la tâche : lance l'enrichissement et
+     donne-moi le fichier chimere_tirage_enrichi.html prêt à l'emploi. »
+
+3. Laisse tourner ~10–15 min. À la fin tu récupères :
+   chimere_tirage_enrichi.html  → ouvre-le par double-clic, c'est prêt.
+
+SANS CLAUDE CODE (Python)
+-------------------------
+Dans un terminal, place-toi dans ce dossier et lance :
+   python3 enrichir_chimere.py
+Puis ouvre chimere_tirage_enrichi.html.
+
+BON À SAVOIR
+------------
+- Le script est reprenable : s'il s'arrête, relance-le, il continue.
+- enrichissement_rapport.csv liste les correspondances trouvées : utile pour
+  repérer un jeu mal associé (titre français tombé sur le mauvais jeu).
+- Les images se chargent depuis internet (pas de gros fichiers à trimballer) :
+  l'appli a donc besoin d'une connexion pour afficher les boîtes.
+- Le journal des parties reste stocké sur chaque appareil (pas de synchro).
