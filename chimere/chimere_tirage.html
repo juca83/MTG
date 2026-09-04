@@ -139,6 +139,41 @@
   .switch{display:inline-flex; align-items:center; gap:7px; font-size:13px; color:var(--muted); cursor:pointer}
   .footer-note{color:var(--muted); font-size:12px; margin-top:28px; text-align:center; line-height:1.6}
   @media (prefers-reduced-motion: reduce){.animate .gcard{animation:none}}
+
+  /* --- onglets --- */
+  .tabs{display:flex; gap:6px; margin:0 2px 20px; border-bottom:2px solid var(--line)}
+  .tab{appearance:none; border:1px solid transparent; border-bottom:0; background:none; font-family:var(--serif); font-size:16px; font-weight:700; color:var(--muted); padding:10px 18px; border-radius:11px 11px 0 0; cursor:pointer; position:relative; top:2px}
+  .tab:hover{color:var(--ink)}
+  .tab[aria-selected="true"]{background:var(--paper); border-color:var(--line); color:var(--ink)}
+  .tab .n{font-family:var(--sans); font-weight:600; font-size:12px; color:var(--muted); margin-left:7px}
+
+  /* --- table de la collection --- */
+  .colbar{display:flex; gap:11px; flex-wrap:wrap; align-items:flex-end; margin-bottom:13px}
+  .colbar .field{gap:6px}
+  .colbar input.search{min-width:200px; flex:1; padding:11px 13px; border:1px solid var(--line); border-radius:11px; font-size:14px; background:var(--paper); font-family:var(--sans); color:var(--ink)}
+  .colbar select{padding:10px 12px; border:1px solid var(--line); border-radius:11px; background:var(--paper); font-size:13.5px; color:var(--ink); font-family:var(--sans)}
+  .colmeta{display:flex; gap:16px; align-items:center; flex-wrap:wrap; margin-bottom:11px}
+  .tablewrap{overflow:auto; max-height:70vh; border:1px solid var(--line); border-radius:12px; background:var(--paper)}
+  table.coll{border-collapse:collapse; width:100%; font-size:13.5px; min-width:660px}
+  table.coll th{position:sticky; top:0; z-index:1; background:var(--paper2); text-align:left; font-size:11.5px; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); padding:11px 12px; border-bottom:1px solid var(--line); cursor:pointer; white-space:nowrap; user-select:none}
+  table.coll th:hover{color:var(--ink)}
+  table.coll th .ar{opacity:0; font-size:10px; margin-left:4px}
+  table.coll th.sorted{color:var(--ink)}
+  table.coll th.sorted .ar{opacity:1; color:var(--gold2)}
+  table.coll td{padding:8px 12px; border-bottom:1px solid var(--paper2); vertical-align:middle}
+  table.coll tbody tr:last-child td{border-bottom:0}
+  table.coll tbody tr:hover{background:var(--paper2)}
+  table.coll td.jeu{font-weight:600}
+  table.coll td.num{white-space:nowrap; color:var(--muted)}
+  table.coll td.cov{width:38px; padding-right:0}
+  table.coll td:last-child{white-space:nowrap; text-align:right}
+  .thumb,.thumb-ph{width:30px; height:30px; border-radius:5px; display:block; background:var(--paper2)}
+  .thumb{object-fit:cover}
+  .thumb-ph{display:flex; align-items:center; justify-content:center; font-size:9.5px; font-weight:700; color:var(--muted)}
+  .tag-sm{display:inline-block; padding:3px 8px; border-radius:999px; font-size:11.5px; color:#fff; white-space:nowrap}
+  .tag-sm.mech{background:var(--paper2); color:var(--muted); border:1px solid var(--line)}
+  .coll-empty{padding:30px 14px; text-align:center; color:var(--muted); font-size:14px}
+  @media(max-width:640px){.tab{padding:9px 11px; font-size:14.5px} .tabs{gap:2px}}
 </style>
 </head>
 <body>
@@ -148,6 +183,13 @@
     <span class="sub">on te propose 4 jeux à sortir ce soir</span>
     <span class="count" id="count"></span>
   </header>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab" id="tabDraw" role="tab" aria-selected="true" aria-controls="viewDraw">Tirage du soir</button>
+    <button class="tab" id="tabColl" role="tab" aria-selected="false" aria-controls="viewColl">La collection<span class="n" id="tabCollN"></span></button>
+  </nav>
+
+  <div id="viewDraw" role="tabpanel" aria-labelledby="tabDraw">
 
   <section class="controls">
     <div class="row">
@@ -219,9 +261,9 @@
 
   <div class="grid2">
     <div class="panel">
-      <h2>Ce soir</h2>
-      <div class="sub">les jeux marqués « à table » sont écartés des prochains tirages</div>
-      <div class="plist" id="tonight"><div class="mini">Rien en cours pour l'instant.</div></div>
+      <h2>Écartés pour ce soir</h2>
+      <div class="sub">ces jeux ne peuvent plus ressortir si tu relances le tirage · « terminer » pour noter la partie</div>
+      <div class="plist" id="tonight"><div class="mini">Aucun jeu écarté pour l'instant.</div></div>
     </div>
     <div class="panel">
       <h2>Parties enregistrées</h2>
@@ -234,14 +276,74 @@
     </div>
   </div>
 
-  <section class="panel browse">
-    <h2>Toute la collection</h2>
-    <input class="search" id="search" placeholder="Rechercher un jeu…">
-    <div class="blist" id="blist"></div>
-  </section>
+  </div><!-- /viewDraw -->
+
+  <div id="viewColl" role="tabpanel" aria-labelledby="tabColl" hidden>
+    <section class="panel">
+      <h2>Toute la collection</h2>
+      <div class="sub">clique sur un titre de colonne pour trier · l'export s'ouvre dans Excel</div>
+
+      <div class="colbar">
+        <input class="search" id="cSearch" placeholder="Rechercher un jeu…" aria-label="Rechercher un jeu">
+        <div class="field">
+          <label>Jouable à</label>
+          <select id="cPlayers"><option value="0">tous</option></select>
+        </div>
+        <div class="field">
+          <label>Durée</label>
+          <select id="cTime">
+            <option value="0">toutes</option>
+            <option value="30">≤ 30 min</option>
+            <option value="60">≤ 1 h</option>
+            <option value="90">≤ 1 h 30</option>
+            <option value="120">≤ 2 h</option>
+            <option value="121">plus de 2 h</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Complexité</label>
+          <select id="cWeight"><option value="0">toutes</option></select>
+        </div>
+        <div class="field">
+          <label>Thème</label>
+          <select id="cTheme"><option value="">tous</option></select>
+        </div>
+        <div class="field">
+          <label>Mécanique</label>
+          <select id="cMech"><option value="">toutes</option></select>
+        </div>
+      </div>
+
+      <div class="colmeta">
+        <span class="hint" id="cCount"></span>
+        <button class="linkbtn" id="cReset">Tout réafficher</button>
+        <button class="linkbtn" id="cExport">Exporter en CSV (Excel)</button>
+      </div>
+
+      <div class="tablewrap">
+        <table class="coll">
+          <thead>
+            <tr>
+              <th aria-hidden="true"></th>
+              <th data-k="name">Jeu<span class="ar">▲</span></th>
+              <th data-k="players">Joueurs<span class="ar">▲</span></th>
+              <th data-k="time">Durée<span class="ar">▲</span></th>
+              <th data-k="weight">Complexité<span class="ar">▲</span></th>
+              <th data-k="theme">Thème<span class="ar">▲</span></th>
+              <th data-k="mech">Mécanique<span class="ar">▲</span></th>
+              <th aria-hidden="true"></th>
+            </tr>
+          </thead>
+          <tbody id="cBody"></tbody>
+        </table>
+      </div>
+      <div class="coll-empty" id="cEmpty" hidden>Aucun jeu ne correspond à cette recherche.</div>
+    </section>
+  </div><!-- /viewColl -->
 
   <p class="footer-note">
     Images et données affinées via BoardGameGeek — corrige librement, tout est éditable.<br>
+    Les jeux écartés le sont <b>pour la session en cours</b> : recharger la page remet tout à zéro.<br>
     Le journal des parties est enregistré <b>sur cet appareil uniquement</b> (pas de synchro entre membres).
   </p>
 </div>
@@ -374,7 +476,7 @@ function render(animate,poolSize,note){
     const cover = g.img ? `<img src="${g.img}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="ph" style="display:none"><span>${initials(g.name)}</span></div>`
                         : `<div class="ph"><span>${initials(g.name)}</span></div>`;
     card.innerHTML=`
-      ${atTable.has(id)?'<span class="attable-badge">À table</span>':''}
+      ${atTable.has(id)?'<span class="attable-badge">Écarté</span>':''}
       <div class="cover">${cover}</div>
       <div class="body">
         <div class="gname">${esc(g.name)}</div>
@@ -391,7 +493,7 @@ function render(animate,poolSize,note){
         <div class="foot">
           <a class="bgg" href="${bggUrl(g)}" target="_blank" rel="noopener">BGG ↗</a>
           <button class="lock ${locked.has(id)?'on':''}" data-act="lock">${locked.has(id)?'Verrouillé':'Verrouiller'}</button>
-          <button class="${atTable.has(id)?'on':''}" data-act="table">${atTable.has(id)?'Remettre':'À table'}</button>
+          <button class="${atTable.has(id)?'on':''}" data-act="table" title="${atTable.has(id)?'remettre ce jeu dans les tirages':'ce jeu ne ressortira plus si tu relances'}">${atTable.has(id)?'Remettre':'Retirer du tirage'}</button>
           <button data-act="done">Noter</button>
         </div>
       </div>`;
@@ -422,10 +524,9 @@ function renderHistory(){
     el.appendChild(r);});
 }
 document.getElementById('exportCsv').onclick=()=>{
-  let rows=[["date","jeu","joueur","score","gagnant"]];
+  let rows=[["Date","Jeu","Joueur","Score","Gagnant"]];
   history.forEach(h=>{if(h.players&&h.players.length)h.players.forEach(p=>rows.push([h.date,h.game,p.name,p.score,h.winner||""]));else rows.push([h.date,h.game,"","",h.winner||""]);});
-  const csv=rows.map(r=>r.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(",")).join("\n");
-  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download="journal_chimere.csv";a.click();
+  telechargerCsv("journal_chimere.csv", rows);
 };
 
 let modalGame=null;const modalBg=document.getElementById('modalBg');
@@ -448,15 +549,119 @@ document.getElementById('mSave').onclick=()=>{
   if(current.length)render(false,pool().length);
 };
 
-const blist=document.getElementById('blist');
-function renderBrowse(q){q=(q||'').toLowerCase().trim();
-  const list=GAMES.filter(g=>!q||g.name.toLowerCase().includes(q)).sort((a,b)=>a.name.localeCompare(b.name,'fr'));
-  blist.innerHTML='';
-  list.slice(0,500).forEach(g=>{const d=document.createElement('div');d.className='brow';
-    d.innerHTML=`<span class="bn">${esc(g.name)}</span><span class="bm">${g.pmin===g.pmax?g.pmin:g.pmin+'–'+g.pmax}👥 · ${fmtTime(g.time)}</span>`;blist.appendChild(d);});
+/* ============================ onglets ============================ */
+const VUES={draw:['tabDraw','viewDraw'], coll:['tabColl','viewColl']};
+function showTab(k){
+  for(const [key,[t,v]] of Object.entries(VUES)){
+    const on=(key===k);
+    document.getElementById(t).setAttribute('aria-selected',on?'true':'false');
+    document.getElementById(v).hidden=!on;
+  }
+  if(k==='coll') renderColl();
+  window.scrollTo({top:0,behavior:'smooth'});
 }
-document.getElementById('search').addEventListener('input',e=>renderBrowse(e.target.value));
-renderBrowse('');renderHistory();renderTonight();
+document.getElementById('tabDraw').onclick=()=>showTab('draw');
+document.getElementById('tabColl').onclick=()=>showTab('coll');
+document.getElementById('tabCollN').textContent=GAMES.length;
+
+/* ======================== table de la collection ======================== */
+const cSearch=document.getElementById('cSearch'), cBody=document.getElementById('cBody'),
+      cEmpty=document.getElementById('cEmpty'), cCount=document.getElementById('cCount');
+const SEL={p:document.getElementById('cPlayers'), t:document.getElementById('cTime'),
+           w:document.getElementById('cWeight'), th:document.getElementById('cTheme'),
+           me:document.getElementById('cMech')};
+let colSort='name', colDir=1;
+
+/* remplissage des menus déroulants d'après la collection réelle */
+(function fillSelects(){
+  const pmax=Math.max(...GAMES.map(g=>g.pmax));
+  for(let i=1;i<=Math.min(pmax,12);i++) SEL.p.add(new Option(i+' joueur'+(i>1?'s':''), i));
+  Object.keys(WEIGHTS).forEach(k=>SEL.w.add(new Option(WEIGHTS[k], k)));
+  const used=k=>[...new Set(GAMES.map(g=>g[k]))];
+  used('theme').filter(t=>THEMES[t]).sort((a,b)=>THEMES[a].localeCompare(THEMES[b],'fr'))
+    .forEach(t=>SEL.th.add(new Option(THEMES[t], t)));
+  used('mech').filter(m=>MECHS[m]).sort((a,b)=>MECHS[a].localeCompare(MECHS[b],'fr'))
+    .forEach(m=>SEL.me.add(new Option(MECHS[m], m)));
+})();
+
+function collFiltered(){
+  const q=cSearch.value.toLowerCase().trim();
+  const p=parseInt(SEL.p.value)||0, t=parseInt(SEL.t.value)||0,
+        w=parseInt(SEL.w.value)||0, th=SEL.th.value, me=SEL.me.value;
+  const list=GAMES.filter(g=>{
+    if(q && !g.name.toLowerCase().includes(q)) return false;
+    if(p && !(p>=g.pmin && p<=g.pmax)) return false;
+    if(t===121){ if(g.time<=120) return false; } else if(t && g.time>t) return false;
+    if(w && g.weight!==w) return false;
+    if(th && g.theme!==th) return false;
+    if(me && g.mech!==me) return false;
+    return true;
+  });
+  const val={name:g=>g.name, players:g=>g.pmin*100+g.pmax, time:g=>g.time,
+             weight:g=>g.weight, theme:g=>THEMES[g.theme]||'', mech:g=>MECHS[g.mech]||''};
+  const f=val[colSort]||val.name;
+  return list.sort((a,b)=>{
+    const x=f(a), y=f(b);
+    const c=(typeof x==='string')?x.localeCompare(y,'fr'):(x-y);
+    return (c||a.name.localeCompare(b.name,'fr'))*colDir;
+  });
+}
+
+function renderColl(){
+  const list=collFiltered();
+  cCount.textContent = list.length===GAMES.length
+    ? `${GAMES.length} jeux`
+    : `${list.length} jeu${list.length>1?'x':''} sur ${GAMES.length}`;
+  cEmpty.hidden = list.length>0;
+  cBody.innerHTML = list.map(g=>{
+    const cover = g.img ? `<img class="thumb" src="${g.img}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'thumb-ph',textContent:'${initials(g.name)}'}))">`
+                        : `<div class="thumb-ph">${initials(g.name)}</div>`;
+    return `<tr>
+      <td class="cov">${cover}</td>
+      <td class="jeu">${esc(g.name)}</td>
+      <td class="num">${g.pmin===g.pmax?g.pmin:g.pmin+'–'+g.pmax}</td>
+      <td class="num">${fmtTime(g.time)}</td>
+      <td class="num">${dots(g.weight)} ${WEIGHTS[g.weight]}</td>
+      <td><span class="tag-sm" style="background:var(--t-${g.theme})">${THEMES[g.theme]||''}</span></td>
+      <td><span class="tag-sm mech">${MECHS[g.mech]||''}</span></td>
+      <td><a class="bgg" href="${bggUrl(g)}" target="_blank" rel="noopener">BGG ↗</a></td>
+    </tr>`;
+  }).join('');
+  document.querySelectorAll('table.coll th[data-k]').forEach(th=>{
+    const on=th.dataset.k===colSort;
+    th.classList.toggle('sorted',on);
+    th.querySelector('.ar').textContent = on ? (colDir>0?'▲':'▼') : '▲';
+  });
+}
+
+document.querySelectorAll('table.coll th[data-k]').forEach(th=>{
+  th.onclick=()=>{
+    const k=th.dataset.k;
+    if(k===colSort) colDir=-colDir; else {colSort=k; colDir=1;}
+    renderColl();
+  };
+});
+[cSearch,SEL.p,SEL.t,SEL.w,SEL.th,SEL.me].forEach(el=>el.addEventListener('input',renderColl));
+document.getElementById('cReset').onclick=()=>{
+  cSearch.value=''; SEL.p.value='0'; SEL.t.value='0'; SEL.w.value='0'; SEL.th.value=''; SEL.me.value='';
+  colSort='name'; colDir=1; renderColl();
+};
+
+/* Excel francophone : séparateur « ; » et BOM pour les accents */
+function telechargerCsv(nom, lignes){
+  const csv=lignes.map(r=>r.map(x=>`"${String(x==null?'':x).replace(/"/g,'""')}"`).join(';')).join('\r\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(["﻿"+csv],{type:'text/csv;charset=utf-8'}));
+  a.download=nom; document.body.appendChild(a); a.click(); a.remove();
+}
+document.getElementById('cExport').onclick=()=>{
+  const rows=[["Jeu","Joueurs min","Joueurs max","Durée (min)","Complexité","Thème","Mécanique","Fiche BGG"]];
+  collFiltered().forEach(g=>rows.push([g.name,g.pmin,g.pmax,g.time,WEIGHTS[g.weight],
+                                       THEMES[g.theme]||'',MECHS[g.mech]||'',bggUrl(g)]));
+  telechargerCsv("collection_chimere.csv", rows);
+};
+
+renderColl();renderHistory();renderTonight();
 </script>
 </body>
 </html>
