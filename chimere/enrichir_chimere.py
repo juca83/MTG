@@ -30,7 +30,7 @@ travail : le jeu concerné est simplement noté comme non trouvé et sera retent
 """
 
 import sys, re, json, time, csv, os, urllib.parse, urllib.request, urllib.error
-import http.cookiejar
+import http.cookiejar, unicodedata, difflib, math
 import xml.etree.ElementTree as ET
 
 HTML_IN   = sys.argv[1] if len(sys.argv) > 1 else "chimere_tirage.html"
@@ -125,6 +125,42 @@ def strategies():
 # Certaines protections posent un cookie à la première visite : on le conserve.
 _opener = urllib.request.build_opener(
     urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+# --- Titres à réinterroger même s'ils sont déjà en cache -------------------
+# (associations manifestement fausses lors de la campagne du 09/09/2026)
+A_REFAIRE = {
+    "Anima",
+    "Battlestar Galactica",
+    "Belgian Beers Race",
+    "Captain Solar",
+    "Caverna",
+    "Complots (Coup)",
+    "Conspiracy",
+    "Cross of Iron",
+    "Cthulhu: Aux Portes de l'Horreur",
+    "Dilemme Express",
+    "Dobble",
+    "Dobble Harry Potter",
+    "Dungeon Saga",
+    "Dungeon Saga: Origins",
+    "Endeavor",
+    "Faraway",
+    "Flotilla",
+    "Gnomes War",
+    "Kosmopoli:t",
+    "La Famiglia",
+    "Le Secret de mon Père",
+    "Nemesis",
+    "Quantum",
+    "Rune Wars",
+    "Sauve qui Poux!",
+    "Shogun",
+    "Speakeasy",
+    "Sweet Lands",
+    "Tapestry",
+    "Trickerion",
+    "Varuna",
+}
 
 # --- Associations manuelles : bon identifiant BGG si un nom tombe à côté ---
 OVERRIDE_ID = {
@@ -314,21 +350,108 @@ def fetch(chemin):
             time.sleep(2 + tentative); continue
     return None
 
-def search_id(name):
-    q = OVERRIDE_QUERY.get(name, name)
+MOTS_VIDES = {"le","la","les","de","du","des","the","of","a","l","d","et","and","un","une"}
+
+def norm(t):
+    t = unicodedata.normalize("NFD", str(t).lower())
+    t = "".join(c for c in t if unicodedata.category(c) != "Mn")
+    t = re.sub(r"[\u2019']", " ", t)
+    t = re.sub(r"[^a-z0-9 ]", " ", t)
+    return re.sub(r"\s+", " ", t).strip()
+
+def mots(t):
+    return [x for x in norm(t).split() if x not in MOTS_VIDES]
+
+def variantes(nom):
+    """Plusieurs façons d'interroger BGG : les titres français portent souvent
+    leur équivalent anglais entre parenthèses, et les « ? » cassent la
+    recherche."""
+    v, vu = [], set()
+    def ajoute(x):
+        x = re.sub(r"\s+", " ", (x or "").replace("?", " ")).strip(" -–—:,")
+        if x and norm(x) not in vu:
+            vu.add(norm(x)); v.append(x)
+    ajoute(nom)
+    for dedans in re.findall(r"[（(]([^)）]*)[)）]", nom):      # le contenu des parenthèses
+        for bout in re.split(r"[/|]", dedans):
+            ajoute(bout)
+    ajoute(re.sub(r"[（(][^)）]*[)）]", " ", nom))              # le titre sans parenthèses
+    for bout in re.split(r"\s*/\s*", re.sub(r"[（(][^)）]*[)）]", " ", nom)):
+        ajoute(bout)
+    sans_titre = re.sub(r"^(le|la|les|l'|un|une|des|du|de)\s+", "", nom, flags=re.I)
+    ajoute(sans_titre)
+    ajoute(re.sub(r"\s*:.*$", "", nom))                        # avant les deux-points
+    return v[:5]
+
+def score_nom(q, noms):
+    """Meilleure ressemblance entre la requête et l'un des titres du jeu."""
+    nq, best = norm(q), 0.0
+    for n in noms:
+        nn = norm(n)
+        if not nn: continue
+        if nn == nq: return 1.0
+        r = difflib.SequenceMatcher(None, nq, nn).ratio()
+        tq, tn = set(mots(q)), set(mots(n))
+        if tq and tn:
+            if tq <= tn or tn <= tq: r = max(r, 0.90)
+            r = max(r, 0.5*r + 0.5*len(tq & tn)/len(tq | tn))
+        best = max(best, r)
+    return best
+
+def chercher_candidats(q):
     data = fetch(f"/search?type=boardgame&query={urllib.parse.quote(q)}")
-    if not data: return None, None
+    if not data: return []
     try: root = ET.fromstring(data)
-    except ET.ParseError: return None, None
-    items = root.findall("item")
-    if not items: return None, None
-    ql = q.lower(); best = None
-    for it in items:
-        nm = (it.find("name").get("value") if it.find("name") is not None else "").lower()
-        if nm == ql: best = it; break
-    if best is None: best = items[0]
-    nm = best.find("name").get("value") if best.find("name") is not None else ""
-    return best.get("id"), nm
+    except ET.ParseError: return []
+    out = []
+    for it in root.findall("item"):
+        n = it.find("name")
+        if it.get("id"): out.append((it.get("id"), n.get("value") if n is not None else ""))
+    return out[:12]
+
+def details(ids):
+    """Un seul appel pour plusieurs jeux : BGG accepte les identifiants groupés."""
+    if not ids: return []
+    data = fetch("/thing?id=" + ",".join(ids) + "&stats=1")
+    if not data: return []
+    try: return ET.fromstring(data).findall("item")
+    except ET.ParseError: return []
+
+def tous_les_noms(it):
+    return [n.get("value") for n in it.findall("name") if n.get("value")]
+
+def notoriete(it):
+    e = it.find("statistics/ratings/usersrated")
+    try: n = int(e.get("value")) if e is not None else 0
+    except (TypeError, ValueError): n = 0
+    return min(1.0, math.log10(1 + n) / 4.7)      # ~50 000 votes = 1
+
+SEUIL_NOM = 0.62
+
+def meilleur_jeu(nom):
+    """Cherche le jeu, en jugeant sur tous ses titres et sa notoriété.
+    Retourne (item, titre_retenu, gid) ou (None, motif, '')."""
+    essais = [OVERRIDE_QUERY[nom]] if nom in OVERRIDE_QUERY else variantes(nom)
+    vus, meilleur = set(), None
+    for q in essais:
+        cands = [c for c in chercher_candidats(q) if c[0] not in vus]
+        time.sleep(PAUSE)
+        if not cands: continue
+        vus.update(c[0] for c in cands)
+        for it in details([c[0] for c in cands[:10]]):
+            noms = tous_les_noms(it)
+            sn = score_nom(q, noms)
+            if sn < SEUIL_NOM: continue
+            note = 0.85 * sn + 0.15 * notoriete(it)
+            if not meilleur or note > meilleur[0]:
+                principal = it.find("name[@type='primary']")
+                meilleur = (note, it, principal.get("value") if principal is not None else noms[0], it.get("id"))
+        time.sleep(PAUSE)
+        if meilleur and meilleur[0] >= 0.93:      # correspondance franche : on s'arrête
+            break
+    if not meilleur:
+        return None, "AUCUN MATCH", ""
+    return meilleur[1], meilleur[2], meilleur[3]
 
 def weight_bucket(avg):
     if not avg or avg <= 0: return None
@@ -346,17 +469,16 @@ def map_mech(mechs):
 
 def enrich_fields(name, base):
     """Retourne (patch_dict, matched_name, bggid) ou (None, motif, '')."""
-    gid = OVERRIDE_ID.get(name)
-    matched = None
-    if not gid:
-        gid, matched = search_id(name); time.sleep(PAUSE)
-    if not gid:
-        return None, "AUCUN MATCH", ""
-    data = fetch(f"/thing?id={gid}&stats=1"); time.sleep(PAUSE)
-    if not data: return None, "erreur thing", str(gid)
-    try: it = ET.fromstring(data).find("item")
-    except ET.ParseError: return None, "xml invalide", str(gid)
-    if it is None: return None, "item vide", str(gid)
+    if name in OVERRIDE_ID:
+        gid = str(OVERRIDE_ID[name])
+        items = details([gid]); time.sleep(PAUSE)
+        if not items: return None, "identifiant imposé introuvable", gid
+        it, matched = items[0], None
+        principal = it.find("name[@type='primary']")
+        matched = principal.get("value") if principal is not None else ""
+    else:
+        it, matched, gid = meilleur_jeu(name)
+        if it is None: return None, matched, ""
     def gv(tag):
         e = it.find(tag)
         return int(e.get("value")) if e is not None and (e.get("value") or "").isdigit() else None
@@ -368,8 +490,6 @@ def enrich_fields(name, base):
     mechs = [l.get("value") for l in it.findall("link") if l.get("type")=="boardgamemechanic"]
     avg = it.find("statistics/ratings/averageweight")
     avg = float(avg.get("value")) if avg is not None and avg.get("value") else None
-    disp = it.find("name[@type='primary']")
-    matched = matched or (disp.get("value") if disp is not None else "")
     patch = {}
     if pmin: patch["pmin"] = pmin
     seuil = patch.get("pmin", base.get("pmin"))
@@ -377,8 +497,8 @@ def enrich_fields(name, base):
     if ptime and ptime > 0: patch["time"] = ptime
     wb = weight_bucket(avg)
     if wb: patch["weight"] = wb
-    th = map_theme(cats); patch["theme"] = th or base["theme"]
-    mc = map_mech(mechs); patch["mech"]  = mc or base["mech"]
+    th = map_theme(cats); patch["theme"] = th or base.get("theme")
+    mc = map_mech(mechs); patch["mech"]  = mc or base.get("mech")
     if img: patch["img"] = img
     patch["bggid"] = int(gid); patch["verify"] = False
     # un jeu sans fiche devient tirable dès qu'il a de vraies caractéristiques
@@ -456,7 +576,7 @@ def main():
     interrompu = False
     for i, g in enumerate(games, 1):
         name = g["name"]
-        if name in cache and cache[name].get("bggid"):
+        if name in cache and cache[name].get("bggid") and name not in A_REFAIRE:
             g.update(cache[name]["patch"])
             continue
         patch, matched, gid = enrich_fields(name, g)
