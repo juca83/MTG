@@ -331,7 +331,8 @@ def enrich_fields(name, base):
     matched = matched or (disp.get("value") if disp is not None else "")
     patch = {}
     if pmin: patch["pmin"] = pmin
-    if pmax and pmax >= (patch.get("pmin", base["pmin"])): patch["pmax"] = pmax
+    seuil = patch.get("pmin", base.get("pmin"))
+    if pmax and (seuil is None or pmax >= seuil): patch["pmax"] = pmax
     if ptime and ptime > 0: patch["time"] = ptime
     wb = weight_bucket(avg)
     if wb: patch["weight"] = wb
@@ -339,6 +340,9 @@ def enrich_fields(name, base):
     mc = map_mech(mechs); patch["mech"]  = mc or base["mech"]
     if img: patch["img"] = img
     patch["bggid"] = int(gid); patch["verify"] = False
+    # un jeu sans fiche devient tirable dès qu'il a de vraies caractéristiques
+    if base.get("nofiche") and patch.get("pmin") and patch.get("pmax") and patch.get("time"):
+        patch["nofiche"] = None
     return patch, matched, str(gid)
 
 def load_cache():
@@ -348,7 +352,8 @@ def load_cache():
     return {}
 
 def write_html(html, m, games):
-    out = html[:m.start(1)] + json.dumps(games, ensure_ascii=False) + html[m.end(1):]
+    propre = [{k: v for k, v in g.items() if v is not None or k in ("bggid",)} for g in games]
+    out = html[:m.start(1)] + json.dumps(propre, ensure_ascii=False) + html[m.end(1):]
     open(HTML_OUT, "w", encoding="utf-8").write(out)
 
 def sauver(cache, html, m, games):
@@ -444,14 +449,20 @@ def main():
     sauver(cache, html, m, games)
     ecrire_rapport(games, cache)
 
-    ok = sum(1 for g in games if g.get("bggid"))
-    dire(f"\nTerminé : {ok}/{len(games)} jeux associés à BGG.")
+    titres = {g["name"] for g in games}
+    trouves = {g["name"] for g in games if g.get("bggid")}
+    dire(f"\nTerminé : {len(trouves)}/{len(titres)} jeux associés à BGG "
+         f"({len(games)} exemplaires au total).")
     dire(f"→ {HTML_OUT}  (prêt à l'emploi — ouvre-le, les images apparaissent)")
     dire(f"→ {REPORT}   (vérifie les correspondances douteuses)")
+    manques = sorted(t for t in titres if t not in trouves)
+    if manques:
+        dire("\nNon trouvés sur BGG (à signaler) : " + ", ".join(manques[:25]))
+        if len(manques) > 25: dire(f"  … et {len(manques)-25} autres, voir le rapport CSV.")
     if interrompu:
         dire("\nL'accès a été coupé en cours de route. Relance le script dans")
         dire("un moment : il reprendra exactement où il s'est arrêté.")
-    elif ok < len(games):
+    elif manques:
         dire("Relance le script pour retenter les jeux non trouvés (il reprend via le cache).")
 
 if __name__ == "__main__":
