@@ -37,6 +37,7 @@ HTML_IN   = sys.argv[1] if len(sys.argv) > 1 else "chimere_tirage.html"
 HTML_OUT  = "chimere_tirage_enrichi.html"
 CACHE     = "bgg_cache.json"
 REPORT    = "enrichissement_rapport.csv"
+JOURNAL   = "journal_chimere.txt"   # trace complète, à m'envoyer en cas de souci
 PAUSE     = 0.7          # pause entre appels (courtoisie envers BGG)
 SAVE_EVERY = 20          # réécrit l'HTML tous les N jeux traités
 
@@ -191,13 +192,23 @@ MECH2FAM = [
 ]
 
 def dire(msg=""):
-    """print qui ne plante jamais sur un accent (console Windows)."""
+    """Affiche, et consigne dans le journal. Ne plante jamais sur un accent."""
     try:
         print(msg)
     except UnicodeEncodeError:
         enc = sys.stdout.encoding or "ascii"
         print(str(msg).encode(enc, "replace").decode(enc, "replace"))
-    sys.stdout.flush()
+    except Exception:
+        pass
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
+    try:
+        with open(JOURNAL, "a", encoding="utf-8") as f:
+            f.write(str(msg) + "\n")
+    except Exception:
+        pass
 
 def http_get(url, ua, token="", timeout=30):
     """Retourne (code, contenu). Lève l'exception d'origine en cas d'échec."""
@@ -492,5 +503,39 @@ def main():
     elif manques:
         dire("Relance le script pour retenter les jeux non trouvés (il reprend via le cache).")
 
+def _demarrer():
+    """Rien ne doit pouvoir fermer la fenêtre sans laisser de trace."""
+    import platform, traceback, datetime
+    try:
+        open(JOURNAL, "w", encoding="utf-8").close()
+    except Exception:
+        pass
+    dire("=" * 62)
+    dire(" Chimère · enrichissement BoardGameGeek")
+    dire(f" {datetime.datetime.now():%d/%m/%Y %H:%M}")
+    dire(f" Python {sys.version.split()[0]} · {platform.system()} {platform.release()}")
+    dire(f" Dossier : {os.getcwd()}")
+    dire("=" * 62)
+    fichiers = sorted(f for f in os.listdir(".") if not f.startswith("."))
+    dire("Fichiers présents : " + ", ".join(fichiers[:20]))
+    if not os.path.exists(HTML_IN):
+        dire(f"\nATTENTION : {HTML_IN} est absent de ce dossier.")
+    try:
+        main()
+    except SystemExit:
+        raise
+    except BaseException:
+        dire("\n" + "=" * 62)
+        dire(" Une erreur inattendue est survenue. Détail ci-dessous :")
+        dire("=" * 62)
+        dire(traceback.format_exc())
+        dire(f"Envoie-moi le fichier {JOURNAL} : il contient tout ce qu'il faut.")
+        try:
+            if sys.stdin and sys.stdin.isatty():
+                input("\nAppuie sur Entrée pour fermer.")
+        except Exception:
+            pass
+        sys.exit(3)
+
 if __name__ == "__main__":
-    main()
+    _demarrer()
