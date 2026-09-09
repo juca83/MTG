@@ -79,6 +79,36 @@ def lire_token():
         brut = brut[7:].strip()
     return brut
 
+def demander_token():
+    """Aucune clé trouvée : on la demande, et on l'enregistre pour les fois suivantes."""
+    if not sys.stdin or not sys.stdin.isatty():
+        return ""
+    dire("")
+    dire("=" * 62)
+    dire(" Il me faut ta clé d'accès BoardGameGeek (une seule fois).")
+    dire("")
+    dire(" Elle ressemble à :  4412dd6c-f3f3-43be-848e-3e9a9e6e10d0")
+    dire(" Colle-la ci-dessous, puis appuie sur Entrée.")
+    dire(" (dans cette fenêtre, on colle avec un clic droit)")
+    dire("=" * 62)
+    try:
+        brut = input("\nTa clé : ").strip()
+    except (EOFError, KeyboardInterrupt):
+        return ""
+    brut = brut.strip().strip('"').strip("'")
+    if brut.lower().startswith("bearer "):
+        brut = brut[7:].strip()
+    if not brut:
+        return ""
+    try:
+        with open(TOKEN_FILE, "w", encoding="utf-8") as f:
+            f.write("# Clé d'accès BoardGameGeek. Ne la partage pas.\n")
+            f.write(brut + "\n")
+        dire(f"\nClé enregistrée dans {TOKEN_FILE} : tu n'auras plus à la saisir.\n")
+    except Exception:
+        dire("\n(impossible d'enregistrer la clé : elle sera redemandée la prochaine fois)\n")
+    return brut
+
 def strategies():
     """Combinaisons d'accès à essayer, avec ou sans jeton."""
     tok = ACTIF["token"]
@@ -384,14 +414,11 @@ def main():
     games = json.loads(m.group(1))
     cache = load_cache()
 
-    ACTIF["token"] = lire_token()
+    ACTIF["token"] = lire_token() or demander_token()
     if ACTIF["token"]:
-        dire(f"Jeton BGG trouvé ({len(ACTIF['token'])} caractères).")
+        dire(f"Clé BGG trouvée ({len(ACTIF['token'])} caractères).")
     else:
-        if os.path.exists(TOKEN_FILE):
-            dire(f"Le fichier {TOKEN_FILE} ne contient pas encore de jeton.")
-        else:
-            dire(f"Pas de fichier {TOKEN_FILE} : essai en accès libre.")
+        dire("Aucune clé fournie : essai en accès libre.")
 
     if not choisir_strategie():
         dire("")
